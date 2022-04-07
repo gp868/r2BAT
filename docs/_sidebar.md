@@ -1,6 +1,6 @@
 - [宝藏资源](宝藏资源.md)
-- [项目](项目.md)
-- [webserver详解](webserver详解.md)
+- [webserver项目](webserver项目.md)
+- [webserver代码详解](webserver代码详解.md)
 - [技术栈](技术栈.md)
 - [互联网公司汇总](互联网公司汇总.md)
 - [互联网公司招聘](互联网公司招聘.md)
