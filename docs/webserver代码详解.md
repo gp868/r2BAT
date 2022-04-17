@@ -366,7 +366,7 @@ HTTP的处理流程分为以下三个步骤：
 
 服务器是如何实现读取http的报文的呢？首先，服务器需要对每一个**已建立连接http建立一个http的类对象**，这部分代码如下（服务器一直在运行`eventloop`即回环事件，因为整个服务器s其实是事件驱动）：
 
-```c++
+```php
 //事件回环（即服务器主线程）
 void WebServer::eventLoop()
 {
@@ -435,7 +435,7 @@ void WebServer::eventLoop()
 
 
 
-```c++
+```php
 //处理客户连接上接收到的数据
 void WebServer::dealwithread(int sockfd)
 {
@@ -568,7 +568,7 @@ void WebServer::dealwithwrite(int sockfd)
 
 各子线程通过 `process` 函数对任务进行处理，调用 `process_read` 函数和 `process_write` 函数分别完成报文解析与报文响应两个任务。
 
-```c++
+```php
 //处理http报文请求与报文响应
 //根据read/write的buffer进行报文的解析和响应
 void http_conn::process()
@@ -630,7 +630,7 @@ void http_conn::process()
   - 调用get_line函数，通过m_start_line将从状态机读取数据间接赋给text
   - 主状态机解析text
 
-```c++
+```php
  //m_start_line是行在buffer中的起始位置，将该位置后面的数据赋给text
  //此时从状态机已提前将一行的末尾字符\r\n变为\0\0，所以text可以直接取出完整的行进行解析
  
@@ -724,7 +724,7 @@ http_conn::HTTP_CODE http_conn::process_read()
   - 当前字节既不是\r，也不是\n，表示接收不完整，需要继续接收，返回LINE_OPEN
 
 
-```c++
+```php
 //从状态机，用于分析出一行内容
 //返回值为行的读取状态，有LINE_OK,LINE_BAD,LINE_OPEN
 
@@ -784,7 +784,7 @@ http_conn::LINE_STATUS http_conn::parse_line()
   - 解析完成后主状态机的状态变为CHECK_STATE_HEADER
 
 
-```c++
+```php
 //解析http请求行，获得请求方法，目标url及http版本号
 http_conn::HTTP_CODE http_conn::parse_request_line(char *text)
 {
@@ -876,7 +876,7 @@ http_conn::HTTP_CODE http_conn::parse_request_line(char *text)
   - content-length字段，这里用于读取post请求的消息体长度
 
 
-```c++
+```php
 //解析http请求的一个头部信息
 http_conn::HTTP_CODE http_conn::parse_headers(char *text)
 {
@@ -936,7 +936,7 @@ GET和POST请求报文的区别之一是有无消息体部分，GET请求没有�
 
 为此，我们需要在解析报文的部分添加解析消息体的模块。
 
-```c++
+```php
 while((m_check_state==CHECK_STATE_CONTENT && line_status==LINE_OK)||			((line_status=parse_line())==LINE_OK))
 ```
 
@@ -959,7 +959,7 @@ while((m_check_state==CHECK_STATE_CONTENT && line_status==LINE_OK)||			((line_st
   - 用于保存post请求消息体，为后面的登录和注册做准备
 
 
-```c++
+```php
 //判断http请求是否被完整读入
 http_conn::HTTP_CODE http_conn::parse_content(char *text)
 {
@@ -1083,7 +1083,7 @@ m_url为请求报文中解析出的请求资源，以/开头，也就是`/xxx`�
 
   - POST请求，跳转到fans.html，即关注页面
 
-```c++
+```php
 //网站根目录，文件夹内存放请求的资源和跳转的html文件
 const char* doc_root="/home/qgy/github/ini_tinywebserver/root";
 
@@ -1250,7 +1250,7 @@ http_conn::HTTP_CODE http_conn::do_request()
 
 上述涉及的5个函数，均是内部调用`add_response`函数更新`m_write_idx`指针和缓冲区`m_write_buf`中的内容。
 
-```c++
+```php
 //添加响应报文的公共函数
 bool http_conn::add_response(const char *format, ...)
 {
@@ -1329,7 +1329,7 @@ bool http_conn::add_content(const char *content)
 - iovec是一个结构体，里面有两个元素，指针成员iov_base指向一个缓冲区，这个缓冲区是存放的是writev将要发送的数据。
 - 成员iov_len表示实际写入的长度
 
-```c++
+```php
 //生成响应报文
 bool http_conn::process_write(HTTP_CODE ret)
 {

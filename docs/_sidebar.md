@@ -1,5 +1,6 @@
 - [宝藏资源](宝藏资源.md)
 - [技术栈](技术栈.md)
+- [算法刷题](算法刷题.md)
 - [webserver项目](webserver项目.md)
 - [webserver代码详解](webserver代码详解.md)
 - [互联网公司汇总](互联网公司汇总.md)
