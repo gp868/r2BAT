@@ -13,6 +13,15 @@
     <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
     <!-- Theme: Simple (latest v0.x.x) -->
     <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/docsify/lib/themes/buble.css">
+    <!-- 切换白天/黑夜主题 -->
+    <link 
+        rel="stylesheet"
+        href="//cdn.jsdelivr.net/npm/docsify-darklight-theme@latest/dist/style.min.css"
+        title="docsify-darklight-theme"
+        type="text/css"
+    />
+    <!-- Gitalk css -->
+    <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk/dist/gitalk.css">
 
 </head>
 
@@ -39,6 +48,7 @@
             mergeNavbar: true,
         }
     </script>
+    <!-- 全文搜索设置 -->
     <script>
         // 搜索配置(url：https://docsify.js.org/#/zh-cn/plugins?id=%e5%85%a8%e6%96%87%e6%90%9c%e7%b4%a2-search)
         window.$docsify = {
@@ -58,6 +68,7 @@
             }
         }
     </script>
+    <!-- 目录显示的层级 -->
     <script>
         window.$docsify = {
           loadSidebar: true,
@@ -66,9 +77,19 @@
           },
           subMaxLevel: 4,
           ...
-          sidebarDisplayLevel: 1, // set sidebar display level
+          sidebarDisplayLevel: 1, // 设置目录显示层级
         }
     </script>
+    <!-- 黑暗主题切换 -->
+    <script 
+        src="//cdn.jsdelivr.net/npm/docsify-darklight-theme@latest/dist/index.min.js"
+        type="text/javascript">
+    </script>
+
+    <!-- 字数统计 -->
+    <script src="//unpkg.com/docsify-count/dist/countable.js"></script>
+    <!-- 文章末尾连续阅读插件 -->
+    <script src="//cdn.jsdelivr.net/npm/docsify-pagination/dist/docsify-pagination.min.js"></script>
     <!-- plugins -->
     <script src="//cdn.jsdelivr.net/npm/docsify-sidebar-collapse/dist/docsify-sidebar-collapse.min.js"></script>
     <!-- docsify的js依赖 -->
@@ -87,8 +108,22 @@
     <script src="//cdn.jsdelivr.net/npm/prismjs@1/components/prism-cpp.js"></script>
     <script src="//cdn.jsdelivr.net/npm/prismjs@1/components/prism-cpp.min.js"></script>
     <script src="//cdn.jsdelivr.net/npm/prismjs@1/components/prism-php.min.js"></script>
+    <!-- plugin：gitalk -->
+    <script src="//cdn.jsdelivr.net/npm/docsify/lib/plugins/gitalk.min.js"></script>
+    <script src="//cdn.jsdelivr.net/npm/gitalk/dist/gitalk.min.js"></script>
+    <script>
+    const gitalk = new Gitalk({
+        clientID: '22289f28faa4681110c9',
+        clientSecret: '71b9fd0f817157336fdbf17f7983edbd68272c69',
+        repo: 'comments-for-r2BAT',
+        owner: 'CARLOSGP2021',
+        admin: ['CARLOSGP2021'],
+        // facebook-like distraction free mode
+        distractionFreeMode: false,
+        id: decodeURI(window.location.pathname),
+    })
+    </script>
 
-    
 </body>
 
 </html>
