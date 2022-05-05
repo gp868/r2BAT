@@ -250,19 +250,19 @@ select/poll 只有⽔平触发模式，epoll 默认的触发模式是⽔平触�
 
 - GET和POST的区别
 
-  GET和POST只是HTTP定义的两种输出传输标识，他们的传输大小限制是TCP/IP协议所限制的，并且POST一般需要两次传输。
+  GET和POST是HTTP协议中的两种发送请求的方法。GET和POST本质上就是TCP链接，并无差别。但是由于HTTP的规定和浏览器/服务器处理数据能力的限制，导致他们在应用过程中体现出一些不同。 
 
-  GET和POST**本质**上是TCP链接，但是由于HTTP的规定和浏览器/服务器的限制，导致他们在应用过程中体现出一些不同。
+  首先，HTTP对GET和POST参数的传送渠道（url还是requrest body）提出了要求：GET把参数包含在**URL**中，POST通过**消息体**传递参数。GET主要是用来获取新的网页；POST用作向服务器传递用户的表单数据，如用户名、密码、留言等等。
 
-  GET和POST最**直观**的区别是：GET把参数包含在URL中，POST通过消息体 (request body)传递参数。
+  其次，GET和POST参数大小的限制不同：GET请求在URL中传送的参数是有长度限制的，而POST通过**消息体**传递的参数没有长度限制。
 
-  GET和POST还有一个**重大区别**：GET产生一个TCP数据包，而POST产生两个TCP数据包。
+  此外，GET和POST还有一个**重大区别**：GET产生一个TCP数据包，而POST产生两个TCP数据包。
 
-  GET主要是用来获取新的网页；POST用作向服务器传递用户的表单数据，如用户名、密码、留言等等。
+  对于GET请求，浏览器会把请求头和消息体一并发送出去，服务器响应200 ok（返回数据）；而对于POST请求，浏览器先发送请求头，服务器响应100 continue后，浏览器再发送消息体，服务器响应200 ok（返回数据）。
 
-  对于GET方式的请求，浏览器会把http header和data一并发送出去，服务器响应200（返回数据）；而对于POST，浏览器先发送header，服务器响应100 continue，浏览器再发送data，服务器响应200 ok（返回数据）。
+  -------
 
-  因为POST需要两步，时间上消耗的要多一点，看起来GET比POST更有效，因此Yahoo团队有推荐用GET替换POST来优化网站性能。但这是一个坑！跳入需谨慎。为什么？
+  POST需要两步，时间上消耗的要多一点，看起来GET比POST更有效，因此Yahoo团队有推荐用GET替换POST来优化网站性能。但这是一个坑！跳入需谨慎。为什么？
 
   1. GET与POST都有自己的语义，不能随便混用。
 
@@ -270,11 +270,7 @@ select/poll 只有⽔平触发模式，epoll 默认的触发模式是⽔平触�
 
   3. 并不是所有浏览器都会在POST中发送两次包，Firefox就只发送一次。
 
-  根据HTTP协议规定，**GET**方法可以携带交互需要的所有数据，因此你会看到搜索百度或谷歌的时候，点击搜索形成的URL包含了你刚才的搜索关键字，没有安全需求的请求把信息放URL里没关系，但是你访问银行网站的时候，不希望把账户、密码这些放在URL里被人拦截是吧，所以HTTP设计了**POST**请求，他可以把请求信息放在HTTP请求里，这样就不能简单的从URL里找到账户、密码了。 
-
   [GET和POST两种基本请求方法的区别 - 在途中# - 博客园 (cnblogs.com)](https://www.cnblogs.com/logsharing/p/8448446.html)
-
-  [GET和POST的区别和使用场景_shangrila_kun的博客-CSDN博客_get和post的区别和应用场景](https://blog.csdn.net/shangrila_kun/article/details/83658646)
 
 - 短连接和长链接的区别
 
