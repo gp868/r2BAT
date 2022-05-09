@@ -1,5 +1,6 @@
 - [宝藏资源](宝藏资源.md)
 - [算法刷题](算法刷题.md)
+- [八股文](八股文.md)
 - [字节青训营](字节青训营.md)
 - [webserver项目](webserver项目.md)
 - [webserver代码详解](webserver代码详解.md)
