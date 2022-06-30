@@ -910,7 +910,7 @@ sudo find /etc/ -name interfaces
 - `-mtime -n`：列出在 n 天之内（包含 n 天本身）被修改过的文件
 - `-newer file`：file 为一个已存在的文件，列出比 file 还要新的文件名
 
-![](https://cdn.jsdelivr.net/gh/CARLOSGP2021/myFigures/img/d1d3e3f3-26b0-4e6c-88d5-1ddb53915451.png)
+<img src="https://cdn.jsdelivr.net/gh/CARLOSGP2021/myFigures/img/d1d3e3f3-26b0-4e6c-88d5-1ddb53915451.png" style="zoom:70%;" />
 
 列出 home 目录中，当天（24 小时之内）有改动的文件：
 
@@ -1973,8 +1973,8 @@ shi*
 |  {n}  | n 是一个非负整数。**匹配确定的 n 次**。例如 o{2} 不能匹配 Bob 中的 o，但是能匹配 food 中的两个 o。 |
 | {n,}  | n 是一个非负整数。**至少匹配 n 次**。例如 o{2,} 不能匹配 Bob 中的 o，但能匹配 foooood 中的所有 o。o{1,} 等价于 o+。o{0,} 则等价于 o\*。 |
 | {n,m} | m 和 n 均为非负整数，其中 n<=m。**最少匹配 n 次且最多匹配 m 次**。例如，o{1,3} 将匹配 fooooood 中的前三个 o。o{0,1} 等价于 o?。请注意在逗号和两个数之间不能有空格。 |
-* |匹配前面的子表达式零次或多次。例如，zo* 能匹配 z、zo 以及 zoo。* 等价于 {0,}。
-+ |匹配前面的子表达式一次或多次。例如，zo+ 能匹配 zo 以及 zoo，但不能匹配 z。+ 等价于 {1,}。
+`*` |匹配前面的子表达式零次或多次。例如，zo* 能匹配 z、zo 以及 zoo。* 等价于 {0,}。
+`+` |匹配前面的子表达式一次或多次。例如，zo+ 能匹配 zo 以及 zoo，但不能匹配 z。+ 等价于 {1,}。
   ? |匹配前面的子表达式零次或一次。例如，do(es)? 可以匹配 do 或 does 中的 do。? 等价于 {0,1}。
   ? |当该字符紧跟在任何一个其他限制符（\*，+，?，{n}，{n,}，{n,m}）后面时，匹配模式是**非贪婪**的。非贪婪模式尽可能少的匹配所搜索的字符串，而默认的贪婪模式则尽可能多的匹配所搜索的字符串。例如，对于字符串 oooo，o+? 将匹配单个 o，而 o+ 将匹配所有 o。
   . |**匹配除 \n 之外的任何单个字符**。要匹配包括 \n 在内的任何字符，请使用类似 `(.｜\n)` 的模式。
@@ -1984,10 +1984,11 @@ shi*
   [^xyz] |排除型（negate）字符集合。**匹配未列出的任意字符**。例如，[^abc] 可以匹配 plain 中的 plin。
   [a-z] |字符范围。**匹配指定范围内的任意字符**。例如，[a-z] 可以匹配 a 到 z 范围内的任意小写字母字符。
   [^a-z]| 排除型的字符范围。**匹配任何不在指定范围内的任意字符**。例如，[^a-z] 可以匹配任何不在 a 到 z 范围内的任意字符。
-  
-  - 优先级
-  
-  优先级为从上到下从左到右，依次降低：
+
+
++ 优先级
+
+优先级为从上到下从左到右，依次降低：
 
 |           运算符           |     说明     |
 | :------------------------: | :----------: |
@@ -1996,8 +1997,6 @@ shi*
 | \*，+，?，{n}，{n,}，{n,m} |    限定符    |
 |    ^，\$，\ 任何元字符     | 定位点和序列 |
 |             ｜             |     选择     |
-
-
 
 # grep 模式匹配命令
 
@@ -2243,7 +2242,7 @@ I like linux
 www.shiyanlou.com
 ```
 - 使用 awk 将文本内容打印到终端：
-```
+```php
 # "quote>" 不用输入
 awk '{
 quote> print
@@ -2258,14 +2257,13 @@ awk '{print}' test
 说明:在这个操作中我是省略了 pattern，所以 awk 会默认匹配输入文本的全部内容，然后在 `{}` 花括号中执行动作，即 print 打印所有匹配项，这里是全部文本内容。
 
 - 将 test 的第一行的每个字段单独显示为一行：
-```
+```php
 $ awk '{
 > if(NR==1){
 > print $1 "\n" $2 "\n" $3
 > } else {
 > print}
 > }' test
-
 # 或者
 $ awk '{
 > if(NR==1){
@@ -2286,12 +2284,11 @@ $ awk '{
 然后是 `$N` 其中 N 为相应的字段号，这也是 awk 的内建变量，它表示引用相应的字段，因为我们这里第一行只有三个字段，所以只引用到了 `$3`。除此之外另一个这里没有出现的 $0，它表示引用当前记录（当前行）的全部内容。
 
 - 将 test 的第二行的以点为分段的字段换成以空格为分隔：
-```
+```php
 awk -F'.' '{
 > if(NR==2){
 > print $1 "\t" $2 "\t" $3
 > }}' test
-
 # 或者
 awk '
 > BEGIN{
@@ -2390,13 +2387,11 @@ sudo apt-get --reinstall install <packagename>
 通常我们使用 `Tab` 键补全软件包名。有时候需要同时安装多个软件包，你还可以使用正则表达式匹配软件包名进行批量安装。
 
 ### 软件升级
-```
+```php
 # 更新软件源
 sudo apt-get update
-
 # 升级没有依赖问题的软件包
 sudo apt-get upgrade
-
 # 升级并解决依赖关系
 sudo apt-get dist-upgrade
 ```
@@ -2406,7 +2401,7 @@ sudo apt-get dist-upgrade
 ![](https://cdn.jsdelivr.net/gh/CARLOSGP2021/myFigures/img/3088e5a9-119e-4508-857d-c21e340062e2.png)
 
 或者，你可以执行
-```
+```php
 # 不保留配置文件的移除
 sudo apt-get purge w3m
 # 或者
@@ -2418,7 +2413,7 @@ sudo apt-get autoremove
 ### 软件搜索
 当自己刚知道了一个软件，想下载使用，需要确认软件仓库里面有没有，就需要用到搜索功能了，命令如下：
 
-```
+```php
 sudo apt-cache search softname1 softname2 softname3……
 ```
 `apt-cache` 命令则是针对本地数据进行相关操作的工具，search 顾名思义在本地的数据库中寻找有关 softname1，softname2 相关软件的信息。
@@ -2449,7 +2444,7 @@ sudo apt-cache search softname1 softname2 softname3……
 ### 使用 dpkg 安装 deb 软件包
 我们先使用apt-get加上-d参数只下载不安装，下载 emacs 编辑器的 deb 包：
 
-```
+```php
 sudo apt-get update
 sudo apt-get -d install -y emacs
 ```
@@ -2459,7 +2454,7 @@ sudo apt-get -d install -y emacs
 
 然后我们将第一个deb拷贝到 /home/shiyanlou 目录下，并使用 `dpkg` 安装
 
-```
+```php
 cp /var/cache/apt/archives/emacs24_24.5+1-6ubuntu1.1_amd64.deb ~
 # 安装之前参看deb包的信息
 sudo dpkg -I emacs24_24.5+1-6ubuntu1.1_amd64.deb
@@ -2467,7 +2462,7 @@ sudo dpkg -I emacs24_24.5+1-6ubuntu1.1_amd64.deb
 
 如你所见，这个包还额外依赖了一些软件包，这意味着，如果主机目前没有这些被依赖的软件包，直接使用 `dpkg` 安装可能会存在一些问题，`因为 dpkg 并不能为你解决依赖关系`。
 
-```
+```php
 # 使用dpkg安装
 sudo dpkg -i emacs24_24.5+1-6ubuntu1.1_amd64.deb
 ```
@@ -2489,7 +2484,7 @@ sudo apt-get -f install -y
 
 使用`dpkg -L`查看deb包目录信息
 
-```
+```php
 sudo dpkg -L emacs24
 ```
 
@@ -2613,7 +2608,7 @@ pstree
 
 我们还可以使用这样一个命令来看，其中 pid 就是该进程的一个唯一编号，ppid 就是该进程的父进程的 pid，command 表示的是该进程通过执行什么样的命令或者脚本而产生的：
 
-```
+```php
 ps －fxo user,ppid,pid,pgid,command
 ```
 
@@ -2647,7 +2642,7 @@ Session 主要是针对一个 tty 建立，Session 中的每个进程都称为�
 
 我们可以通过 `&` 这个符号，让我们的命令在后台中运行：
 
-```
+```php
 ls &
 ```
 
@@ -2667,7 +2662,7 @@ ls &
 
 我们可以通过这样的一个命令将后台的工作拿到前台来：
 
-```
+```php
 # 后面不加参数提取预设工作，加参数提取指定工作的编号
 # ubuntu 在 zsh 中需要 %，在 bash 中不需要 %
 fg [%jobnumber]
@@ -2680,7 +2675,7 @@ fg [%jobnumber]
 
 之前我们通过 `ctrl + z` 使得工作停止放置在后台，若是我们想让其在后台运作我们就使用这样一个命令：
 
-```
+```php
 #与fg类似，加参则指定，不加参则取预设
 
 bg [%jobnumber]
@@ -2690,7 +2685,7 @@ bg [%jobnumber]
 
 既然有方法将被放置在后台的工作提至前台或者让它从停止变成继续运行在后台，当然也有方法删除一个工作，或者重启等等。
 
-```
+```php
 # kill的使用格式如下
 kill -signal %jobnumber
 
@@ -2742,7 +2737,7 @@ load average 在 wikipedia 中的解释是 the system load is a measure of the a
 
 实际生活中我们需要将这个值除以我们的核数来看。我们可以通过以下的命令来查看 CPU 的个数与核心数：
 
-```
+```php
 #查看物理 CPU 的个数
 cat /proc/cpuinfo | grep "physical id" | sort | uniq |wc -l
 
@@ -2849,13 +2844,13 @@ cat /proc/cpuinfo | grep "physical id" | grep "0" | wc -l
 ### ps 工具的使用
 `ps` 也是我们最常用的查看进程的工具之一，我们通过这样的一个命令来了解一下，它能给我们带来哪些信息：
 
-```
+```php
 ps aux
 ```
 
 ![](https://cdn.jsdelivr.net/gh/CARLOSGP2021/myFigures/img/ba043cff-a52f-4db2-a9c4-d778cb810aae.png)
 
-```
+```php
 ps axjf
 ```
 
@@ -2908,7 +2903,7 @@ ps 工具有许多的参数，下面解释部分常用的参数。
 
 使用 `-l` 参数可以显示自己这次登录的 bash 相关的进程信息罗列出来：
 
-```
+```php
 ps -l
 ```
 
@@ -2916,7 +2911,7 @@ ps -l
 
 相对来说我们更加常用下面这个命令，他将会罗列出所有的进程信息：
 
-```
+```php
 ps aux
 ```
 
@@ -2931,7 +2926,7 @@ ps aux | grep zsh
 
 此外我们还可以查看时，将连同部分的进程呈树状显示出来：
 
-```
+```php
 ps axjf
 ```
 
@@ -2939,7 +2934,7 @@ ps axjf
 
 当然如果你觉得使用这样的没有把你想要的信息放在一起，我们也可以是用这样的命令，来自定义我们所需要的参数显示：
 
-```
+```php
 ps -afxo user,ppid,pid,pgid,command
 ```
 
@@ -2950,7 +2945,7 @@ ps -afxo user,ppid,pid,pgid,command
 
 ![](https://cdn.jsdelivr.net/gh/CARLOSGP2021/myFigures/img/0049a8c4-0c6c-421d-8ee4-123662a8dc35.png)
 
-```
+```php
 pstree -up
 ```
 
@@ -2968,7 +2963,7 @@ pstree -up
 
 上节使用 `kill` 命令来管理我们的一些 job，这节课我们将尝试用 `kill` 来操作下一些不属于 job 范畴的进程，直接对 pid 下手。
 
-```
+```php
 # 首先我们使用图形界面打开了 gedit、gvim，用 ps 可以查看到
 ps aux
 
@@ -2989,7 +2984,7 @@ ps aux | grep gedit
 
 而 `nice` 的值我们是可以通过 `nice` 命令来修改的，而需要注意的是 `nice` 值可以调整的范围是 -20 ~ 19，其中 root 有着至高无上的权力，既可以调整自己的进程也可以调整其他用户的程序，并且是所有的值都可以用，而普通用户只可以调制属于自己的进程，并且其使用的范围只能是 0 ~ 19，因为系统为了避免一般用户抢占系统资源而设置的一个限制。
 
-```
+```php
 # 这个实验在环境中无法做，因为权限不够，可以自己在本地尝试
 
 # 打开一个程序放在后台，或者用图形界面打开
@@ -3000,7 +2995,7 @@ ps -afxo user,ppid,pid,stat,pri,ni,time,command | grep vim
 ```
 我们还可以用 `renice` 来修改已经存在的进程的优先级，同样因为权限的原因在实验环境中无法尝试。
 
-```
+```php
 renice -5 pid
 ```
 
