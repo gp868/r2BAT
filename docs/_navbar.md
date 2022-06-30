@@ -14,9 +14,15 @@
   - [cpp](八股文/cpp.md)
   - [计算机网络](八股文/计算机网络.md)
   - [操作系统](八股文/操作系统.md)
+  - [Linux](八股文/Linux.md)
+  - [MySQL](八股文/MySQL.md)
 - 项目
   - [服务器项目](项目/webserver项目.md)
   - [代码详解](项目/webserver代码详解.md)
+- Linux
+  - [Linux](Linux/Linux.md)
+  - [Vim](Linux/Vim.md)
+  - [Bash](Linux/Bash.md)
 - 关注我
   - [Github](https://github.com/CARLOSGP2021)
   - [Gitee](https://gitee.com/gp21)
