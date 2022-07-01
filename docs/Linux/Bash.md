@@ -148,7 +148,7 @@ bash test.sh
 ```
 
 
-![](https://cdn.jsdelivr.net/gh/CARLOSGP2021/myFigures/img/7d22e36e-4d4d-4a11-ab07-1db25e639c70.png)
+![](../img/7d22e36e-4d4d-4a11-ab07-1db25e639c70.png)
 
 上面的脚本说明了如何使用 `echo` 打印出一段字符串和变量内容，这里采用了几种不同的方式，希望你可以理解这几种不同方式的异同。
 
@@ -236,7 +236,7 @@ source test.sh
 
 这里举一个例子，能够更加生动的说明：
 
-![](https://cdn.jsdelivr.net/gh/CARLOSGP2021/myFigures/img/d5efac9d-8d41-4cfc-ba13-261755a5b936.png)
+![](../img/d5efac9d-8d41-4cfc-ba13-261755a5b936.png)
 
 同样是 `$HOME`，单引号会直接认为是字符，而双引号认为是一个变量。
 
@@ -786,7 +786,7 @@ This script needs at least 10 command-line arguments!
 # 基本运算符
 ## 算数运算符
 
-![](https://cdn.jsdelivr.net/gh/CARLOSGP2021/myFigures/img/26d2cecc-4ca0-46c3-945a-33314a851edf.png)
+![](../img/26d2cecc-4ca0-46c3-945a-33314a851edf.png)
 
 ```
 vim test.sh
@@ -851,7 +851,7 @@ a != b
 ## 关系运算符
 > 关系运算符`只支持数字`，不支持字符串，除非字符串的值是数字。
 
-![](https://cdn.jsdelivr.net/gh/CARLOSGP2021/myFigures/img/a788cd04-a021-4905-9cf1-6c82c7fbd5a4.png)
+![](../img/a788cd04-a021-4905-9cf1-6c82c7fbd5a4.png)
 
 
 实例
@@ -884,7 +884,7 @@ bash test2.sh
 
 ## 逻辑运算符
 
-![](https://cdn.jsdelivr.net/gh/CARLOSGP2021/myFigures/img/8c574548-642e-4082-a9d5-5c4448025813.png)
+![](../img/8c574548-642e-4082-a9d5-5c4448025813.png)
 
 实例
 
@@ -917,7 +917,7 @@ return true
 
 ## 字符串运算符
 
-![](https://cdn.jsdelivr.net/gh/CARLOSGP2021/myFigures/img/046f51b9-1c41-4668-b4e6-82cd47cdc6be.png)
+![](../img/046f51b9-1c41-4668-b4e6-82cd47cdc6be.png)
 
 ```
 #!/bin/bash
@@ -954,7 +954,7 @@ abc : The string is not empty
 ```
 ## 文件测试运算符
 
-![](https://cdn.jsdelivr.net/gh/CARLOSGP2021/myFigures/img/7af21446-8bdd-4488-a896-c7c40572d63d.png)
+![](../img/7af21446-8bdd-4488-a896-c7c40572d63d.png)
 
 实例：
 

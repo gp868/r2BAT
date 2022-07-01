@@ -362,7 +362,7 @@ HTTP的处理流程分为以下三个步骤：
 
 在连接阶段，最重要的是**tcp连接过程和读取http的请求报文**（其实读取请求报文就是读取客户端发送的数据而已），tcp连接过程涉及epoll内核事件创建等。
 
-<img src="https://cdn.jsdelivr.net/gh/CARLOSGP2021/myFigures/img/202204072021336.png" alt="image-20220407202158284" style="zoom:80%;" />
+<img src="../img/202204072021336.png" alt="image-20220407202158284" style="zoom:80%;" />
 
 服务器是如何实现读取http的报文的呢？首先，服务器需要对每一个**已建立连接http建立一个http的类对象**，这部分代码如下（服务器一直在运行`eventloop`即回环事件，因为整个服务器s其实是事件驱动）：
 
@@ -546,7 +546,7 @@ void WebServer::dealwithwrite(int sockfd)
 
 **从状态机负责读取报文的一行，主状态机负责对该行数据进行解析**，主状态机内部调用从状态机，从状态机驱动主状态机。
 
-![image-20220403105959011](https://cdn.jsdelivr.net/gh/CARLOSGP2021/myFigures/img/202204031059253.png)
+![image-20220403105959011](../img/202204031059253.png)
 
 **主状态机**
 
@@ -981,7 +981,7 @@ http_conn::HTTP_CODE http_conn::parse_content(char *text)
 
 浏览器端发出HTTP请求报文，服务器端接收该报文并调用`process_read`对其进行解析，根据解析结果`HTTP_CODE`，进入相应的逻辑和模块。其中，服务器子线程完成报文的解析与响应；主线程监测读写事件，调用`read_once`和`http_conn::write`完成数据的读取与发送。
 
-![image-20220403170241000](https://cdn.jsdelivr.net/gh/CARLOSGP2021/myFigures/img/202204031702260.png)
+![image-20220403170241000](../img/202204031702260.png)
 
 在process_read()中完成请求报文的解析之后，状态机会调用do_request()函数，该函数是处理功能逻辑的，将网站根目录和url文件拼接，然后通过stat判断该文件属性。url可以抽象成 ip:port/xxx，xxx通过html文件的action属性（即请求报文）进行设置。m_url为请求报文中解析出的请求资源，以/开头，也就是x，项目中解析后的m_url有8种情况，见do_request()函数。
 

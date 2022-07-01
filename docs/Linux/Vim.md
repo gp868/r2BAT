@@ -11,7 +11,7 @@
 | 普通模式==>命令模式 |     按 : （shift 加 冒号）     |
 | 普通模式==>可视模式 | 按 v 可视模式，按 V 可视块模式 |
 
-<img src="https://cdn.jsdelivr.net/gh/CARLOSGP2021/myFigures/img/202206301705890.png" alt="img" style="zoom:80%;" />
+<img src="../img/202206301705890.png" alt="img" style="zoom:80%;" />
 
 **命令行模式下保存文档**
 
