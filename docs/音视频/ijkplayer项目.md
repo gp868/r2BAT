@@ -30,8 +30,12 @@
 
 - [开源播放器 ijkplayer (一) ：使用Ijkplayer播放直播视频 - 灰色飘零 - 博客园 (cnblogs.com)](https://www.cnblogs.com/renhui/p/6420140.html)
 - [Android ijkplayer详解使用教程 - 星辰之力 - 博客园 (cnblogs.com)](https://www.cnblogs.com/zhujiabin/p/7211983.html)
-
-
+- [ijkplayer-android框架详解_Suk_39799839的博客-CSDN博客_ijkplayer](https://blog.csdn.net/weixin_39799839/article/details/79186034)
+- [ijkplayer中遇到的问题汇总 - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/116008680)
+- [ijkplayer源码分析 整体概述_baiiu的博客-CSDN博客_ijkplayer源码解析](https://blog.csdn.net/u014099894/article/details/112969853)
+- [ijkplayer 源码分析 - 简书 (jianshu.com)](https://www.jianshu.com/p/32a1d821189b)
+- [带着问题，再读ijkplayer源码_mob604756ffeae8的技术博客_51CTO博客](https://blog.51cto.com/u_15127656/2783837?abTest=51cto)
+- 
 
 # 记录
 
