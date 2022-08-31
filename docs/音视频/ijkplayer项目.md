@@ -37,7 +37,7 @@
 - [带着问题，再读ijkplayer源码_mob604756ffeae8的技术博客_51CTO博客](https://blog.51cto.com/u_15127656/2783837?abTest=51cto)
 - 
 
-# 记录
+# 文件结构
 
 ijkplayer核心源码主要在ijkmedia文件夹下ijkplayer、ijksdl及ijkutils。
 
@@ -55,7 +55,44 @@ jni API接口及主要核心流程：
 - ijkmedia/ijkplayer/ff_ffplay.c
 - ijkmedia/ijkplayer/ijkplayer.c
 
+# 源码解析
 
+ijkplayer在底层重写了ffplay.c文件，主要是去除ffplay中使用sdl音视频库播放音视频的部分；并且增加了对移动端硬件解码部分，视频渲染部分，以及音频播放部分的实现，这些部分在android和ios下有不同的实现，具体如下：
+
+| Platform | 硬件解码     | 视频渲染                 | 音频播放              |
+| :------- | :----------- | ------------------------ | --------------------- |
+| IOS      | VideoToolBox | OpenGL ES                | AudioQueue            |
+| Android  | MediaCodec   | OpenGL ES、ANativeWindow | OpenSL ES、AudioTrack |
+
+从上面可以看出ijkplayer是暂时不支持音频硬件解码的。
+
+主要目录结构：
+
+| 目录          | 解释                                                         |
+| ------------- | ------------------------------------------------------------ |
+| **android**   | android平台上的上层接口封装以及平台相关方法                  |
+| **config**    | 存放编译ijkplayer所需的依赖源文件, 如ffmpeg、openssl等       |
+| **ijkmedia**  | 核心代码                                                     |
+| **ijkj4a**    | android平台下使用，用来实现c代码调用java层代码。这个文件夹是通过bilibili的另一个开源项目jni4android自动生成的。 |
+| **ijkplayer** | 播放器数据下载及解码相关                                     |
+| **ijksdl**    | 音视频数据渲染相关                                           |
+| ios           | iOS平台上的上层接口封装以及平台相关方法                      |
+| tool          | 初始化项目工程脚本                                           |
+
+[![v4oWoq.png](https://s1.ax1x.com/2022/08/31/v4oWoq.png)](https://imgse.com/i/v4oWoq)
+
+[![v4ooSU.png](https://s1.ax1x.com/2022/08/31/v4ooSU.png)](https://imgse.com/i/v4ooSU)
+
+
+
+
+
+
+
+# 参考资料
+
+- [Android视频播放软解与硬解的区别_Dawish_大D的博客-CSDN博客_android硬解码与软解码](https://blog.csdn.net/u010072711/article/details/52413766)
+- 
 
 
 
