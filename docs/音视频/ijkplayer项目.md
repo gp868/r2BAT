@@ -18,7 +18,7 @@
 
 - git大文件下载
 
-   ```c
+   ```php
    brew install git-lfs
    git lfs install
    git lfs pull
@@ -83,6 +83,361 @@ ijkplayer在底层重写了ffplay.c文件，主要是去除ffplay中使用sdl音
 
 [![v4ooSU.png](https://s1.ax1x.com/2022/08/31/v4ooSU.png)](https://imgse.com/i/v4ooSU)
 
+## 初始化
+
+结构体：
+
+- SDL_Vout表示一个显示上下文，或者理解为一块画布，ANativeWindow，控制如何显示overlay。
+- SDL_VoutOverlay表示显示层，或者理解为一块图像数据，表达如何显示。
+
+初始化：
+
+1. 创建IJKMediaPlayer对象， 通过`ffp_create`方法创建了FFPlayer对象，并设置消息处理函数；
+2. 创建图像渲染对象SDL_Vout；
+3. 创建平台相关的IJKFF_Pipeline对象，包括视频解码以及音频输出部分；
+
+简单来说，就是创建播放器对象，完成音视频解码、渲染的准备工作。
+
+当外部调用prepareToPlay启动播放后，ijkplayer内部最终会调用到ffplay.c中的方法`int ffp_prepare_async_l(FFPlayer *ffp, const char *file_name)`，该方法是启动播放器的入口函数，在此会设置player选项，打开audio output，最重要的是调用`stream_open`方法。
+
+```php
+static VideoState *stream_open(FFPlayer *ffp, const char *filename, AVInputFormat *iformat)
+{  
+    ......           
+    /* start video display */
+    if (frame_queue_init(&is->pictq, &is->videoq, ffp->pictq_size, 1) < 0)
+        goto fail;
+    if (frame_queue_init(&is->sampq, &is->audioq, SAMPLE_QUEUE_SIZE, 1) < 0)
+        goto fail;
+ 
+    if (packet_queue_init(&is->videoq) < 0 ||
+        packet_queue_init(&is->audioq) < 0 )
+        goto fail;
+ 
+    ......
+    
+    is->video_refresh_tid = SDL_CreateThreadEx(&is->_video_refresh_tid, video_refresh_thread, ffp, "ff_vout");
+    
+    ......
+    
+    is->read_tid = SDL_CreateThreadEx(&is->_read_tid, read_thread, ffp, "ff_read");
+    
+    ......
+}
+```
+
+从代码中可以看出，stream_open主要做了以下几件事情：
+
+1. 创建存放video/audio解码前数据的videoq/audioq；
+2. 创建存放video/audio解码后数据的pictq/sampq；
+3. 创建读数据线程read_thread；
+4. 创建视频渲染线程video_refresh_thread；
+
+说明：subtitle是与video、audio平行的一个stream，ffplay中也支持对它的处理，即创建存放解码前后数据的两个queue，并且当文件中存在subtitle时，还会启动subtitle的解码线程。
+
+## 数据读取
+
+数据读取的整个过程都是由ffmpeg内部完成的，接收到网络过来的数据后，ffmpeg根据其封装格式，完成了解复用的动作，得到音视频分离开的解码前的数据，步骤如下：
+
+1. 创建上下文结构体，这个结构体是最上层的结构体，表示输入上下文
+
+```php
+ic = avformat_alloc_context();
+```
+
+2. 设置中断函数，如果出错或者退出，就可以立刻退出
+
+```php
+ic->interrupt_callback.callback = decode_interrupt_cb;
+ic->interrupt_callback.opaque = is；
+```
+
+3. 打开文件，主要是探测协议类型，如果是网络文件则创建网络链接等
+
+```php
+err = avformat_open_input(&ic, is->filename, is->iformat, &ffp->format_opts);
+```
+
+4. 探测媒体类型，可得到当前文件的封装格式，音视频编码参数等信息
+
+```php
+err = avformat_find_stream_info(ic, opts);
+```
+
+5. 打开视频、音频解码器。在此会打开相应解码器，并创建相应的解码线程。
+
+```php
+stream_component_open(ffp, st_index[AVMEDIA_TYPE_AUDIO]);
+```
+
+6. 读取媒体数据，得到的是音视频分离的解码前数据
+
+```php
+ret = av_read_frame(ic, pkt);
+```
+
+7. 将音视频数据分别送入相应的queue中
+
+```php
+if (pkt->stream_index == is->audio_stream && pkt_in_play_range) {
+    packet_queue_put(&is->audioq, pkt);
+} else if (pkt->stream_index == is->video_stream && pkt_in_play_range && !(is->video_st && (is->video_st->disposition & AV_DISPOSITION_ATTACHED_PIC))) {
+    packet_queue_put(&is->videoq, pkt);
+    ......
+} else {
+    av_packet_unref(pkt);
+}
+```
+
+
+重复6、7两步，即可不断获取待播放的数据。
+
+## 音视频解码
+
+ijkplayer在视频解码上支持软解和硬解两种方式，可在起播前配置优先使用的解码方式，播放过程中不可切换。iOS平台上硬解使用VideoToolbox，Android平台上使用MediaCodec。ijkplayer中的音频解码只支持软解，暂不支持硬解。
+
+> - 硬解，用自带播放器播放，android中的VideoView；
+> - 软解，使用音视频解码库，比如FFmpeg；
+
+### 视频解码方式选择
+
+在打开解码器的方法中：
+
+```php
+static int stream_component_open(FFPlayer *ffp, int stream_index)
+{
+    ......
+    codec = avcodec_find_decoder(avctx->codec_id);
+    ......
+    if ((ret = avcodec_open2(avctx, codec, &opts)) < 0) {
+        goto fail;
+    }
+    ......  
+    case AVMEDIA_TYPE_VIDEO:
+        ......
+        decoder_init(&is->viddec, avctx, &is->videoq, is->continue_read_thread);
+        ffp->node_vdec = ffpipeline_open_video_decoder(ffp->pipeline, ffp);
+        if (!ffp->node_vdec)
+            goto fail;
+        if ((ret = decoder_start(&is->viddec, video_thread, ffp, "ff_video_dec")) < 0)
+            goto out;       
+    ......
+}
+```
+
+首先会打开ffmpeg的解码器，然后通过`ffpipeline_open_video_decoder`创建IJKFF_Pipenode。在创建IJKMediaPlayer对象时，通过`ffpipeline_create_from_android`创建了pipeline。该函数实现如下：
+
+```php
+IJKFF_Pipenode* ffpipeline_open_video_decoder(IJKFF_Pipeline *pipeline, FFPlayer *ffp)
+{
+    return pipeline->func_open_video_decoder(pipeline, ffp);
+}
+```
+
+`func_open_video_decoder`函数指针最后指向的是ffpipeline_android.c中的`func_open_video_decoder`，其定义如下：
+
+```php
+static IJKFF_Pipenode *func_open_video_decoder(IJKFF_Pipeline *pipeline, FFPlayer *ffp)
+{
+    IJKFF_Pipeline_Opaque *opaque = pipeline->opaque;
+    IJKFF_Pipenode        *node = NULL;
+    if (ffp->mediacodec_all_videos || ffp->mediacodec_avc || ffp->mediacodec_hevc || ffp->mediacodec_mpeg2)
+        node = ffpipenode_create_video_decoder_from_android_mediacodec(ffp, pipeline, opaque->weak_vout);
+    if (!node) {
+        node = ffpipenode_create_video_decoder_from_ffplay(ffp);
+    }
+    return node;
+}
+```
+
+
+首先通过`ffp->mediacodec_all_videos || ffp->mediacodec_avc || ffp->mediacodec_hevc || ffp->mediacodec_mpeg2`判断是否支持硬件解码，如果支持会优先去尝试打开硬件解码器，如果打开失败会自动切换使用ffmpeg软解码。
+
+关于ffp->mediacodec_all_videos 、ffp->mediacodec_avc 、ffp->mediacodec_hevc 、ffp->mediacodec_mpeg2它们的值需要在起播前通过如下方法配置：
+
+```php
+ijkmp_set_option_int(_mediaPlayer, IJKMP_OPT_CATEGORY_PLAYER,   "xxxxx", 1);
+```
+
+### 视频解码
+
+video的解码线程为video_thread，audio的解码线程为audio_thread。
+
+- 视频解码线程
+
+```php
+static int video_thread(void *arg)
+{
+    FFPlayer *ffp = (FFPlayer *)arg;
+    int       ret = 0;
+ 
+    if (ffp->node_vdec) {
+        ret = ffpipenode_run_sync(ffp->node_vdec);
+    }
+    return ret;
+}
+```
+
+`ffpipenode_run_sync` 中调用的是IJKFF_Pipenode对象中的 `func_run_sync`：
+
+```php
+int ffpipenode_run_sync(IJKFF_Pipenode *node)
+{
+    return node->func_run_sync(node);
+}
+```
+
+`func_run_sync` 取决于播放前配置的软硬解，假设为**硬解**，`func_run_sync`函数指针最后指向的是ffpipenode_android_mediacodec_vdec.c中的`func_run_sync`，其定义如下：
+
+```php
+static int func_run_sync(IJKFF_Pipenode *node)
+{
+    .......
+    opaque->enqueue_thread = SDL_CreateThreadEx(&opaque->_enqueue_thread, enqueue_thread_func, node, "amediacodec_input_thread");
+    if (!opaque->enqueue_thread) {
+        ALOGE("%s: SDL_CreateThreadEx failed\n", __func__);
+        ret = -1;
+        goto fail;
+    }
+    while (!q->abort_request) {
+        int64_t timeUs = opaque->acodec_first_dequeue_output_request ? 0 : AMC_OUTPUT_TIMEOUT_US;
+        got_frame = 0;
+        ret = drain_output_buffer(env, node, timeUs, &dequeue_count, frame, &got_frame);
+        .......
+        if (got_frame) {
+            duration = (frame_rate.num && frame_rate.den ? av_q2d((AVRational){frame_rate.den, frame_rate.num}) : 0);
+            pts = (frame->pts == AV_NOPTS_VALUE) ? NAN : frame->pts * av_q2d(tb);
+            ret = ffp_queue_picture(ffp, frame, pts, duration, av_frame_get_pkt_pos(frame), is->viddec.pkt_serial);
+            ......
+        }
+    }
+}
+```
+
+1. 首先该函数启动一个输入线程，线程的执行函数为enqueue_thread_func，函定义如下:
+
+```php
+static int enqueue_thread_func(void *arg)
+{
+    ......
+    while (!q->abort_request) {
+        ret = feed_input_buffer(env, node, AMC_INPUT_TIMEOUT_US, &dequeue_count);
+        if (ret != 0) {
+            goto fail;
+        }
+    }
+    ......
+}
+```
+
+该函数在循环中通过`feed_iput_buffer`调用`ffp_packet_queue_get_or_buffering`一直不停的取数据，并将取得的数据交给硬件解码器。
+
+2. 创建完输入线程后，直接进入while循环，循环中调用`drain_output_buffer`去获取硬件解码后的数据，该函数最后一个参数用来标记是否接收到完整的一帧数据。
+
+3. 当`got_frame`为true时，将接收的帧通过`ffp_queue_picture`送入pictq队列里。
+
+若为**软解**，`func_run_sync`函数指针最后指向的是ffpipenode_ffplay_vdec.c中的func_run_sync，其定义如下：
+
+```php
+static int func_run_sync(IJKFF_Pipenode *node)
+{
+    IJKFF_Pipenode_Opaque *opaque = node->opaque;
+    return ffp_video_thread(opaque->ffp);
+}
+
+static int ffplay_video_thread(void *arg) {
+    AVFrame *frame = av_frame_alloc();
+    for(;;){
+        ret = get_video_frame(ffp, frame); // avcodec_receive_frame软解码获取一帧
+        queue_picture(ffp, frame, pts, duration, frame->pkt_pos, is->viddec.pkt_serial);
+    }
+}
+```
+
+### 音频解码
+
+ijkplayer的音频解码线程的入口函数是ff_ffplayer.c中的`audio_thread()`：
+
+```php
+static int audio_thread(void *arg)
+{
+.....
+    do {
+        ffp_audio_statistic_l(ffp);
+        if ((got_frame = decoder_decode_frame(ffp, &is->auddec, frame, NULL)) < 0)
+            goto the_end;
+            ......
+            while ((ret = av_buffersink_get_frame_flags(is->out_audio_filter, frame, 0)) >= 0) {
+              	.....
+                if (!(af = frame_queue_peek_writable(&is->sampq)))
+                    goto the_end;
+								.....
+                av_frame_move_ref(af->frame, frame);
+                frame_queue_push(&is->sampq);
+                .....
+        		}
+    		} while (ret >= 0 || ret == AVERROR(EAGAIN) || ret == AVERROR_EOF);
+ the_end:
+		......
+    av_frame_free(&frame);
+    return ret;
+}
+```
+
+1. 一开始就进入循环，然后调用`decoder_decode_frame()`进行解码，调用传进去的codec的`codec->decode()`方法解码，解码后的帧存放到frame中；
+
+2. 然后调用`frame_queue_peek_writable()`判断是否能把刚刚解码的frame写入`is->sampq`中。会判断sampq队列是否满了，如果已满，会调用`pthread_cond_wait()`方法阻塞队列；如果未满，就会返回frame应该放置的位置的地址。`is->sampq`是音频解码帧列表，播放线程从这里面读取数据，然后播放出来；
+3. 最后 `av_frame_move_ref(af->frame, frame);`把frame放入到sampq相应位置。由于前面`af = frame_queue_peek_writable(&is->sampq)`，af为指向这一帧frame存放位置的指针，所以直接把值赋值给它的结构体里面的frame就行了。
+
+4. `frame_queue_push(&is->sampq);`里面是一个唤醒线程的操作，如果音频播放线程因为sampq队列为空而阻塞，这里可以唤醒它。
+
+## 音视频渲染和同步
+
+### 音频输出
+
+ijkplayer中Android平台使用OpenSL ES或 输出音频，iOS平台使用AudioQueue输出音频。
+
+audio output节点，在ffp_prepare_async_l方法中被创建：
+
+```php
+ffp->aout = ffpipeline_open_audio_output(ffp->pipeline, ffp);
+```
+
+`ffpipeline_open_audio_output`方法实际上调用的是IJKFF_Pipeline对象的函数指针`func_open_audio_utput`，该函数指针在初始化中的`ijkmp_android_create`方法中被赋值，最后指向的是ffpipeline_android.c中的函数`func_open_audio_output`：
+
+```php
+static SDL_Aout *func_open_audio_output(IJKFF_Pipeline *pipeline, FFPlayer *ffp)
+{
+    SDL_Aout *aout = NULL;
+    if (ffp->opensles) {
+        aout = SDL_AoutAndroid_CreateForOpenSLES();
+    } else {
+        aout = SDL_AoutAndroid_CreateForAudioTrack();
+    }
+    if (aout)
+        SDL_AoutSetStereoVolume(aout, pipeline->opaque->left_volume, pipeline->opaque->right_volume);
+    return aout;
+}
+```
+
+该函数会根据ffp->opensles来决定是否使用openSLES来进行音频播放，后面的分析是基于openSLES方式处理音频的。
+
+`SDL_AoutAndroid_CreateForOpenSLES`定义如下，主要完成的是创建SDL_Aout对象：
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -92,6 +447,7 @@ ijkplayer在底层重写了ffplay.c文件，主要是去除ffplay中使用sdl音
 # 参考资料
 
 - [Android视频播放软解与硬解的区别_Dawish_大D的博客-CSDN博客_android硬解码与软解码](https://blog.csdn.net/u010072711/article/details/52413766)
+- [什么是JNI？为什么会有Native层？如何使用？ - 简书 (jianshu.com)](https://www.jianshu.com/p/9adf0c716566)
 - 
 
 
