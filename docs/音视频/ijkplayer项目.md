@@ -424,7 +424,257 @@ static SDL_Aout *func_open_audio_output(IJKFF_Pipeline *pipeline, FFPlayer *ffp)
 
 `SDL_AoutAndroid_CreateForOpenSLES`定义如下，主要完成的是创建SDL_Aout对象：
 
+```php
+SDL_Aout *SDL_AoutAndroid_CreateForOpenSLES()
+{
+    SDLTRACE("%s\n", __func__);
+    SDL_Aout *aout = SDL_Aout_CreateInternal(sizeof(SDL_Aout_Opaque));
+    if (!aout)
+        return NULL;
+    SDL_Aout_Opaque *opaque = aout->opaque;
+    opaque->wakeup_cond = SDL_CreateCond();
+    opaque->wakeup_mutex = SDL_CreateMutex();
 
+    int ret = 0;
+ 
+    SLObjectItf slObject = NULL;
+    ret = slCreateEngine(&slObject, 0, NULL, 0, NULL, NULL);
+    CHECK_OPENSL_ERROR(ret, "%s: slCreateEngine() failed", __func__);
+    opaque->slObject = slObject;
+ 
+    ret = (*slObject)->Realize(slObject, SL_BOOLEAN_FALSE);
+    CHECK_OPENSL_ERROR(ret, "%s: slObject->Realize() failed", __func__);
+ 
+    SLEngineItf slEngine = NULL;
+    ret = (*slObject)->GetInterface(slObject, SL_IID_ENGINE, &slEngine);
+    CHECK_OPENSL_ERROR(ret, "%s: slObject->GetInterface() failed", __func__);
+    opaque->slEngine = slEngine;
+ 
+    SLObjectItf slOutputMixObject = NULL;
+    const SLInterfaceID ids1[] = {SL_IID_VOLUME};
+    const SLboolean req1[] = {SL_BOOLEAN_FALSE};
+    ret = (*slEngine)->CreateOutputMix(slEngine, &slOutputMixObject, 1, ids1, req1);
+    CHECK_OPENSL_ERROR(ret, "%s: slEngine->CreateOutputMix() failed", __func__);
+    opaque->slOutputMixObject = slOutputMixObject;
+ 
+    ret = (*slOutputMixObject)->Realize(slOutputMixObject, SL_BOOLEAN_FALSE);
+    CHECK_OPENSL_ERROR(ret, "%s: slOutputMixObject->Realize() failed", __func__);
+ 
+    aout->free_l       = aout_free_l;
+    aout->opaque_class = &g_opensles_class;
+    aout->open_audio   = aout_open_audio;
+    aout->pause_audio  = aout_pause_audio;
+    aout->flush_audio  = aout_flush_audio;
+    aout->close_audio  = aout_close_audio;
+    aout->set_volume   = aout_set_volume;
+    aout->func_get_latency_seconds = aout_get_latency_seconds;
+ 
+    return aout;
+fail:
+    aout_free_l(aout);
+    return NULL;
+}
+```
+
+回到ffplay.c中，如果发现待播放的文件中含有音频，那么在调用 `stream_component_open` 打开解码器时，该方法里面也调用 `audio_open` 打开了audio output设备。
+
+```php
+static int audio_open(FFPlayer *opaque, int64_t wanted_channel_layout, int wanted_nb_channels, int wanted_sample_rate, struct AudioParams *audio_hw_params)
+{
+    FFPlayer *ffp = opaque;
+    VideoState *is = ffp->is;
+    SDL_AudioSpec wanted_spec, spec;
+    ......
+    wanted_nb_channels = av_get_channel_layout_nb_channels(wanted_channel_layout);
+    wanted_spec.channels = wanted_nb_channels;
+    wanted_spec.freq = wanted_sample_rate;
+    wanted_spec.format = AUDIO_S16SYS;
+    wanted_spec.silence = 0;
+    wanted_spec.samples = FFMAX(SDL_AUDIO_MIN_BUFFER_SIZE, 2 << av_log2(wanted_spec.freq / SDL_AoutGetAudioPerSecondCallBacks(ffp->aout)));
+    wanted_spec.callback = sdl_audio_callback;
+    wanted_spec.userdata = opaque;
+    while (SDL_AoutOpenAudio(ffp->aout, &wanted_spec, &spec) < 0) {
+        .....
+    }
+    ......
+    return spec.size;
+}
+```
+
+在 audio_open中配置了音频输出的相关参数 SDL_AudioSpec ，并通过
+
+```php
+int SDL_AoutOpenAudio(SDL_Aout *aout, const SDL_AudioSpec *desired, SDL_AudioSpec *obtained)
+{
+    if (aout && desired && aout->open_audio)
+        return aout->open_audio(aout, desired, obtained);
+    return -1;
+}
+```
+
+设置给了Audio Output，android平台上即为OpenSLES。OpenSLES模块在工作过程中，通过不断的callback来获取pcm数据进行播放。
+
+### 视频渲染
+
+若Android平台上采用OpenGL渲染解码后的YUV图像，渲染线程为video_refresh_thread，最后渲染图像的方法为video_image_display2，定义如下：
+
+```php
+static void video_image_display2(FFPlayer *ffp)
+{
+    VideoState *is = ffp->is;
+    Frame *vp;
+    Frame *sp = NULL;
+ 
+    vp = frame_queue_peek_last(&is->pictq);
+    ......
+    
+    SDL_VoutDisplayYUVOverlay(ffp->vout, vp->bmp);
+    ......
+}
+```
+
+从代码实现上可以看出，该线程的主要工作为：
+
+1. 调用`frame_queue_peek_last`从pictq中读取当前需要显示视频帧；
+2. 调用`SDL_VoutDisplayYUVOverlay`进行绘制；
+
+`display_overlay`函数指针在函数SDL_VoutAndroid_CreateForANativeWindow()中被赋值为`vout_display_overlay`，该方法就是调用OpengGL绘制图像。
+
+### 音视频同步
+
+ijkplayer在默认情况下也是使用音频作为参考时钟源，处理同步的过程主要在视频渲染`video_refresh_thread`的线程中：
+
+```php
+static int video_refresh_thread(void *arg)
+{
+    FFPlayer *ffp = arg;
+    VideoState *is = ffp->is;
+    double remaining_time = 0.0;
+    while (!is->abort_request) {
+        if (remaining_time > 0.0)
+            av_usleep((int)(int64_t)(remaining_time * 1000000.0));
+        remaining_time = REFRESH_RATE;
+        if (is->show_mode != SHOW_MODE_NONE && (!is->paused || is->force_refresh))
+            video_refresh(ffp, &remaining_time);
+    }
+ 
+    return 0;
+}
+```
+
+从上述实现可以看出，该方法中主要循环做两件事情：
+
+1. 休眠等待，`remaining_time`的计算在`video_refresh`中；
+2. 调用`video_refresh`方法，刷新视频帧；
+
+可见同步的重点是在`video_refresh`中，下面着重分析该方法：
+
+```php
+lastvp = frame_queue_peek_last(&is->pictq);
+vp = frame_queue_peek(&is->pictq);
+......
+  /* compute nominal last_duration */
+last_duration = vp_duration(is, lastvp, vp);
+delay = compute_target_delay(ffp, last_duration, is);
+```
+
+lastvp是上一帧，vp是当前帧，last_duration则是根据当前帧和上一帧的pts，计算出来上一帧的显示时间，经过 `compute_target_delay` 方法，计算出显示当前帧需要等待的时间。
+
+```php
+static double compute_target_delay(FFPlayer *ffp, double delay, VideoState *is)
+{
+    double sync_threshold, diff = 0;
+ 
+    /* update delay to follow master synchronisation source */
+    if (get_master_sync_type(is) != AV_SYNC_VIDEO_MASTER) {
+        /* if video is slave, we try to correct big delays by
+           duplicating or deleting a frame */
+        diff = get_clock(&is->vidclk) - get_master_clock(is);
+ 
+        /* skip or repeat frame. We take into account the
+           delay to compute the threshold. I still don't know
+           if it is the best guess */
+        sync_threshold = FFMAX(AV_SYNC_THRESHOLD_MIN, FFMIN(AV_SYNC_THRESHOLD_MAX, delay));
+        /* -- by bbcallen: replace is->max_frame_duration with AV_NOSYNC_THRESHOLD */
+        if (!isnan(diff) && fabs(diff) < AV_NOSYNC_THRESHOLD) {
+            if (diff <= -sync_threshold)
+                delay = FFMAX(0, delay + diff);
+            else if (diff >= sync_threshold && delay > AV_SYNC_FRAMEDUP_THRESHOLD)
+                delay = delay + diff;
+            else if (diff >= sync_threshold)
+                delay = 2 * delay;
+        }
+    }
+ 
+    .....
+ 
+    return delay;
+}
+```
+
+- 如果当前视频帧落后于主时钟源，则需要减小下一帧画面的等待时间；
+- 如果视频帧超前，并且该帧的显示时间大于显示更新门槛，则显示下一帧的时间为超前的时间差加上上一帧的显示时间;
+- 如果视频帧超前，并且上一帧的显示时间小于显示更新门槛，则采取加倍延时的策略。
+
+回到video_refresh中：
+
+```php
+time= av_gettime_relative()/1000000.0;
+if (isnan(is->frame_timer) || time < is->frame_timer)
+  is->frame_timer = time;
+if (time < is->frame_timer + delay) {
+  *remaining_time = FFMIN(is->frame_timer + delay - time, *remaining_time);
+  goto display;
+}
+```
+
+
+frame_timer实际上就是上一帧的播放时间，而frame_timer + delay实际上就是当前这一帧的播放时间，如果系统时间还没有到当前这一帧的播放时间，直接跳转至display，而此时is->force_refresh变量为0，不显示当前帧，进入`video_refresh_thread`中下一次循环，并睡眠等待。
+
+```php
+is->frame_timer += delay;
+  if (delay > 0 && time - is->frame_timer > AV_SYNC_THRESHOLD_MAX)
+      is->frame_timer = time;
+ 
+  SDL_LockMutex(is->pictq.mutex);
+  if (!isnan(vp->pts))
+         update_video_pts(is, vp->pts, vp->pos, vp->serial);
+  SDL_UnlockMutex(is->pictq.mutex);
+ 
+  if (frame_queue_nb_remaining(&is->pictq) > 1) {
+       Frame *nextvp = frame_queue_peek_next(&is->pictq);
+       duration = vp_duration(is, vp, nextvp);
+       if(!is->step && (ffp->framedrop > 0 || (ffp->framedrop && get_master_sync_type(is) != AV_SYNC_VIDEO_MASTER)) && time > is->frame_timer + duration) {
+           frame_queue_next(&is->pictq);
+           goto retry;
+       }
+  }
+```
+
+如果当前这一帧的播放时间已经过了，并且其和当前系统时间的差值超过了AV_SYNC_THRESHOLD_MAX，则将当前这一帧的播放时间改为系统时间，并在后续判断是否需要丢帧，其目的是为后面帧的播放时间重新调整frame_timer，如果缓冲区中有更多的数据，并且当前的时间已经大于当前帧的持续显示时间，则丢弃当前帧，尝试显示下一帧。
+
+```php
+{
+   frame_queue_next(&is->pictq);
+   is->force_refresh = 1;
+ 
+   SDL_LockMutex(ffp->is->play_mutex);
+   
+    ......
+    
+display:
+    /* display picture */
+    if (!ffp->display_disable && is->force_refresh && is->show_mode == SHOW_MODE_VIDEO && is->pictq.rindex_shown)
+        video_display2(ffp);
+```
+
+否则进入正常显示当前帧的流程，调用 `video_display2` 开始渲染。
+
+## 事件处理
+
+在播放过程中，某些行为的完成或者变化，如prepare完成，开始渲染等，需要以事件形式通知到外部，以便上层作出具体的业务处理。
+
+ijkplayer支持的事件比较多，具体定义在ijkplayer/ijkmedia/ijkplayer/ff_ffmsg.h中
 
 
 
