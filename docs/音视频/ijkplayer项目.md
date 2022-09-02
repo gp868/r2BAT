@@ -737,6 +737,7 @@ static int ijkmp_prepare_async_l(IjkMediaPlayer *mp)
 - [ijkplayer源码分析 整体概述_baiiu的博客-CSDN博客_ijkplayer源码解析](https://blog.csdn.net/u014099894/article/details/112969853)
 - [ijkplayer 源码分析 - 简书 (jianshu.com)](https://www.jianshu.com/p/32a1d821189b)
 - [带着问题，再读ijkplayer源码_mob604756ffeae8的技术博客_51CTO博客](https://blog.51cto.com/u_15127656/2783837?abTest=51cto)
+- [Android NDK MediaCodec在ijkplayer中的实践 - 简书 (jianshu.com)](https://www.jianshu.com/p/41d3147a5e07)
 - 
 
 
