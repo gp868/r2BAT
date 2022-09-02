@@ -26,36 +26,7 @@
 
 > JNI是Java Native Interface的缩写，通过使用 [Java](https://baike.baidu.com/item/Java/85979)本地接口书写程序，可以确保代码在不同的平台上方便移植。从Java1.1开始，JNI标准成为java平台的一部分，它允许Java代码和其他语言写的[代码](https://baike.baidu.com/item/代码/86048)进行交互。JNI一开始是为了本地已[编译](https://baike.baidu.com/item/编译/1258343)语言，尤其是C和C++而设计的，但是它并不妨碍你使用其他编程语言，只要调用约定受支持就可以了。使用java与本地已编译的代码[交互](https://baike.baidu.com/item/交互/6964417)，通常会丧失平台[可移植性](https://baike.baidu.com/item/可移植性/6931884)。但是，有些情况下这样做是可以接受的，甚至是必须的。例如，使用一些旧的库，与硬件、操作系统进行交互，或者为了提高程序的性能。JNI标准至少要保证[本地代码](https://baike.baidu.com/item/本地代码)能工作在任何Java [虚拟机](https://baike.baidu.com/item/虚拟机)环境。
 
-# 资源
-
-- [开源播放器 ijkplayer (一) ：使用Ijkplayer播放直播视频 - 灰色飘零 - 博客园 (cnblogs.com)](https://www.cnblogs.com/renhui/p/6420140.html)
-- [Android ijkplayer详解使用教程 - 星辰之力 - 博客园 (cnblogs.com)](https://www.cnblogs.com/zhujiabin/p/7211983.html)
-- [ijkplayer-android框架详解_Suk_39799839的博客-CSDN博客_ijkplayer](https://blog.csdn.net/weixin_39799839/article/details/79186034)
-- [ijkplayer中遇到的问题汇总 - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/116008680)
-- [ijkplayer源码分析 整体概述_baiiu的博客-CSDN博客_ijkplayer源码解析](https://blog.csdn.net/u014099894/article/details/112969853)
-- [ijkplayer 源码分析 - 简书 (jianshu.com)](https://www.jianshu.com/p/32a1d821189b)
-- [带着问题，再读ijkplayer源码_mob604756ffeae8的技术博客_51CTO博客](https://blog.51cto.com/u_15127656/2783837?abTest=51cto)
-- 
-
 # 文件结构
-
-ijkplayer核心源码主要在ijkmedia文件夹下ijkplayer、ijksdl及ijkutils。
-
-android相关源码结构：
-
-- ijkmediademo: 播放器实例demo
-- ijkmediawidget: 播放器组件封装,类似于系统播放器、vitamio结构，如mediacontroller、videoView。
-- ijkmediaplayer: cpu armv7库。播放器核心jni层及相关上层调用接口开放(包括系统播放器封装切换)。
-- ijkmediaplayer--* 其他cpu兼容库
-
-jni API接口及主要核心流程：
-
-- ijkmedia/ijkplayer/android/ijkplayer-android.c
-- ijkmedia/ijkplayer/android/ijkplayer-jni.c
-- ijkmedia/ijkplayer/ff_ffplay.c
-- ijkmedia/ijkplayer/ijkplayer.c
-
-# 源码解析
 
 ijkplayer在底层重写了ffplay.c文件，主要是去除ffplay中使用sdl音视频库播放音视频的部分；并且增加了对移动端硬件解码部分，视频渲染部分，以及音频播放部分的实现，这些部分在android和ios下有不同的实现，具体如下：
 
@@ -68,16 +39,18 @@ ijkplayer在底层重写了ffplay.c文件，主要是去除ffplay中使用sdl音
 
 主要目录结构：
 
-| 目录          | 解释                                                         |
-| ------------- | ------------------------------------------------------------ |
-| **android**   | android平台上的上层接口封装以及平台相关方法                  |
-| **config**    | 存放编译ijkplayer所需的依赖源文件, 如ffmpeg、openssl等       |
-| **ijkmedia**  | 核心代码                                                     |
-| **ijkj4a**    | android平台下使用，用来实现c代码调用java层代码。这个文件夹是通过bilibili的另一个开源项目jni4android自动生成的。 |
-| **ijkplayer** | 播放器数据下载及解码相关                                     |
-| **ijksdl**    | 音视频数据渲染相关                                           |
-| ios           | iOS平台上的上层接口封装以及平台相关方法                      |
-| tool          | 初始化项目工程脚本                                           |
+| 目录      | 解释                                                         |
+| --------- | ------------------------------------------------------------ |
+| android   | android平台上的上层接口封装以及平台相关方法                  |
+| config    | 存放编译ijkplayer所需的依赖源文件, 如ffmpeg、openssl等       |
+| ijkmedia  | 核心代码                                                     |
+| ijkj4a    | android平台下使用，用来实现c代码调用java层代码。这个文件夹是通过bilibili的另一个开源项目jni4android自动生成的。 |
+| ijkplayer | 播放器数据下载及解码相关                                     |
+| ijksdl    | 音视频数据渲染相关                                           |
+| ios       | iOS平台上的上层接口封装以及平台相关方法                      |
+| tool      | 初始化项目工程脚本                                           |
+
+# 源码解析
 
 [![v4oWoq.png](https://s1.ax1x.com/2022/08/31/v4oWoq.png)](https://imgse.com/i/v4oWoq)
 
@@ -672,13 +645,72 @@ display:
 
 ## 事件处理
 
-在播放过程中，某些行为的完成或者变化，如prepare完成，开始渲染等，需要以事件形式通知到外部，以便上层作出具体的业务处理。
+在播放过程中，某些行为的完成或者变化，如prepare完成，开始渲染等，需要以事件形式通知到外部，以便上层作出具体的业务处理。ijkplayer支持的事件比较多，具体定义在ijkplayer/ijkmedia/ijkplayer/ff_ffmsg.h中
 
-ijkplayer支持的事件比较多，具体定义在ijkplayer/ijkmedia/ijkplayer/ff_ffmsg.h中
+```php
+#define FFP_MSG_FLUSH                       0
+#define FFP_MSG_ERROR                       100     /* arg1 = error */
+#define FFP_MSG_PREPARED                    200
+#define FFP_MSG_COMPLETED                   300
+#define FFP_MSG_VIDEO_SIZE_CHANGED          400     /* arg1 = width, arg2 = height */
+#define FFP_MSG_SAR_CHANGED                 401     /* arg1 = sar.num, arg2 = sar.den */
+#define FFP_MSG_VIDEO_RENDERING_START       402
+#define FFP_MSG_AUDIO_RENDERING_START       403
+#define FFP_MSG_VIDEO_ROTATION_CHANGED      404     /* arg1 = degree */
+#define FFP_MSG_BUFFERING_START             500
+#define FFP_MSG_BUFFERING_END               501
+#define FFP_MSG_BUFFERING_UPDATE            502     /* arg1 = buffering head position in time, arg2 = minimum percent in time or bytes */
+#define FFP_MSG_BUFFERING_BYTES_UPDATE      503     /* arg1 = cached data in bytes,            arg2 = high water mark */
+#define FFP_MSG_BUFFERING_TIME_UPDATE       504     /* arg1 = cached duration in milliseconds, arg2 = high water mark */
+#define FFP_MSG_SEEK_COMPLETE               600     /* arg1 = seek position,                   arg2 = error */
+#define FFP_MSG_PLAYBACK_STATE_CHANGED      700
+#define FFP_MSG_TIMED_TEXT                  800
+#define FFP_MSG_VIDEO_DECODER_OPEN          10001
+```
 
+### 消息上报初始化
 
+在IJKMediaPlayer的初始化方法中:
 
+```php
+static void
+IjkMediaPlayer_native_setup(JNIEnv *env, jobject thiz, jobject weak_this)
+{
+    MPTRACE("%s\n", __func__);
+    IjkMediaPlayer *mp = ijkmp_android_create(message_loop);
+    ......
+}
+```
 
+可以看到在创建播放器时， `message_loop` 函数地址作为参数传入了 `ijkmp_android_create` ，继续跟踪代码，可以发现，该函数地址最终被赋值给了IjkMediaPlayer中的 `msg_loop` 函数指针：
+
+```php
+IjkMediaPlayer *ijkmp_create(int (*msg_loop)(void*))
+{
+    ......
+    mp->msg_loop = msg_loop;
+    ......
+}
+```
+
+开始播放时，会启动一个消息线程：
+
+```php
+static int ijkmp_prepare_async_l(IjkMediaPlayer *mp)
+{
+    ......
+    mp->msg_thread = SDL_CreateThreadEx(&mp->_msg_thread, ijkmp_msg_loop, mp, "ff_msg_loop");
+    ......
+}
+```
+
+`ijkmp_msg_loop` 方法中调用的即是 `mp->msg_loop` 。
+
+### 消息上报处理
+
+播放器底层上报事件时，实际上就是将待发送的消息放入消息队列，另外有一个线程会不断从队列中取出消息，上报给外部，其代码流程大致如下图所示：
+
+[![vIMfoD.png](https://s1.ax1x.com/2022/09/02/vIMfoD.png)](https://imgse.com/i/vIMfoD)
 
 
 
@@ -698,6 +730,13 @@ ijkplayer支持的事件比较多，具体定义在ijkplayer/ijkmedia/ijkplayer/
 
 - [Android视频播放软解与硬解的区别_Dawish_大D的博客-CSDN博客_android硬解码与软解码](https://blog.csdn.net/u010072711/article/details/52413766)
 - [什么是JNI？为什么会有Native层？如何使用？ - 简书 (jianshu.com)](https://www.jianshu.com/p/9adf0c716566)
+- [开源播放器 ijkplayer (一) ：使用Ijkplayer播放直播视频 - 灰色飘零 - 博客园 (cnblogs.com)](https://www.cnblogs.com/renhui/p/6420140.html)
+- [Android ijkplayer详解使用教程 - 星辰之力 - 博客园 (cnblogs.com)](https://www.cnblogs.com/zhujiabin/p/7211983.html)
+- [ijkplayer-android框架详解_Suk_39799839的博客-CSDN博客_ijkplayer](https://blog.csdn.net/weixin_39799839/article/details/79186034)
+- [ijkplayer中遇到的问题汇总 - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/116008680)
+- [ijkplayer源码分析 整体概述_baiiu的博客-CSDN博客_ijkplayer源码解析](https://blog.csdn.net/u014099894/article/details/112969853)
+- [ijkplayer 源码分析 - 简书 (jianshu.com)](https://www.jianshu.com/p/32a1d821189b)
+- [带着问题，再读ijkplayer源码_mob604756ffeae8的技术博客_51CTO博客](https://blog.51cto.com/u_15127656/2783837?abTest=51cto)
 - 
 
 
