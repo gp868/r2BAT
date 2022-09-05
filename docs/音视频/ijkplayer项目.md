@@ -35,7 +35,7 @@ ijkplayer在底层重写了ffplay.c文件，主要是去除ffplay中使用sdl音
 | IOS      | VideoToolBox | OpenGL ES                | AudioQueue            |
 | Android  | MediaCodec   | OpenGL ES、ANativeWindow | OpenSL ES、AudioTrack |
 
-从上面可以看出ijkplayer是暂时不支持音频硬件解码的。
+从上面可以看出ijkplayer是暂时不支持音频硬件解码的，只支持软解。
 
 主要目录结构：
 
@@ -712,6 +712,634 @@ static int ijkmp_prepare_async_l(IjkMediaPlayer *mp)
 
 [![vIMfoD.png](https://s1.ax1x.com/2022/09/02/vIMfoD.png)](https://imgse.com/i/vIMfoD)
 
+# 框架分析
+
+ijkplayer（android）融合了mediacodec，实现了硬解支持。由于MediaCodec的使用与一般的解码API有所不同，其在应用中的使用层级更偏向于播放器层面。所以ijkplayer并没有将MediaCodec作为“解码器”扩展到ffmpeg中，而是另外定义了一个封装层，同时也统一了软解的接口，**这个封装层即ffpipeline**。
+
+ijkplayer中的音频是走的软解，后续提到的解码无特别说明都是指视频解码。
+
+## 基础概念
+
+解码封装层中有两个重要的结构体，`ffpipeline`和`ffpipenode`。ffpipeline表示解码器和音频输出的提供者，ffpipenode表示解码器。
+
+**ffpipeline**定义如下：
+
+```php
+struct IJKFF_Pipeline {
+    SDL_Class             *opaque_class;
+    IJKFF_Pipeline_Opaque *opaque;
+    void            (*func_destroy)             (IJKFF_Pipeline *pipeline);
+    IJKFF_Pipenode *(*func_open_video_decoder)  (IJKFF_Pipeline *pipeline, FFPlayer *ffp);
+    SDL_Aout       *(*func_open_audio_output)   (IJKFF_Pipeline *pipeline, FFPlayer *ffp);
+    IJKFF_Pipenode *(*func_init_video_decoder)  (IJKFF_Pipeline *pipeline, FFPlayer *ffp);
+    int           (*func_config_video_decoder)  (IJKFF_Pipeline *pipeline, FFPlayer *ffp);
+};
+```
+
+`IJKFF_Pipeline`主要定义了3组函数：
+
+- 获取音频输出：func_open_audio_output；
+- 同步方式获取视频解码器：func_open_video_decoder；
+- 异步方式获取视频解码器：func_init_video_decoder、func_config_video_decoder；
+
+这里以IJKFF_Pipenode表示一个视频解码器，以SDL_Aout表示音频输出。
+
+ijkplayer中的音频是软解码的，所以不需要像视频一样去作封装，而是直接基于ffplay修改的。
+
+异步创建视频解码器的用意不是很明白，实际使用中也没需求需要用到，后面分析，先只关注同步创建解码器的部分，即func_open_video_decoder的使用。
+
+**ffpipenode**定义如下：
+
+```php
+struct IJKFF_Pipenode {
+    SDL_mutex *mutex;
+    void *opaque;
+    void (*func_destroy) (IJKFF_Pipenode *node);
+    int  (*func_run_sync)(IJKFF_Pipenode *node);
+    int  (*func_flush)   (IJKFF_Pipenode *node); // optional
+};
+```
+
+IJKFF_Pipenode中的主要函数是：
+
+- func_run_sync：表示解码主循环，从这个函数返回代表解码结束了；
+- func_flush：清空解码器，一般在seek时用到；
+
+## 目录结构
+
+解码封装层的源码文件及目录结构如下：
+
+```php
+// +表示目录，目录下文件递进4个空格，-表示文件
++ijkmedia/ijkplayer
+    -ff_ffpipenode.c/h                          //pipeline定义与封装
+    -ff_ffpipeline.c/h                          //pipenode定义与封装
+    +pipeline
+        -ffpipeline_ffplay.c/h                  //ffplay的pipeline定义(未使用)
+        -ffpipenode_ffplay_vdec.c/h             //ffplay的pipenode定义
+    +android/pipeline
+        -ffpipeline_android.c/h                 //android的ffpipeline定义
+        -ffpipenode_android_mediacodec_vdec.c/h //android的(mediacodec)ffpipenode定义
+```
+
+上面提到的pipeline和pipenode的实现由两种（android上）：
+
+- ffplay软解封装：在ijkmedia/ijkplayer/pipeline目录下，其中ffpipeline_ffplay并未用到；
+- mediacodec硬解封装：在ijkmedia/ijkplayer/android/pipeline目录下；
+
+## 流程分析
+
+解码器在播放器使用过程中的主要功能可以分为：创建、解码、帧入队、seek处理、销毁。解码器的调用主要在ff_ffplay。
+
+### 创建
+
+首先需要创建pipeline，pipeline的创建流程和SDL_Vout一样：
+
+```php
+new IjkMediaPlayer() 
+    -> initPlayer() 
+        -> native_setup() 
+            -> IjkMediaPlayer_native_setup() 
+                -> ijkmp_android_create() 
+                    -> SDL_VoutAndroid_CreateForAndroidSurface() //SDL_Vout在这里创建
+                    -> ffpipeline_create_from_android() //android pipeline在这里创建
+```
+
+接着在ff_ffplay中创建解码器(pipenode)：
+
+```php
+static int stream_component_open(FFPlayer *ffp, int stream_index)
+{
+    //……
+    switch (avctx->codec_type) {
+        case AVMEDIA_TYPE_VIDEO:
+            if (ffp->async_init_decoder) {
+                //这里是异步创建解码器的代码
+            }
+            else{
+                decoder_init(&is->viddec, avctx, &is->videoq, is->continue_read_thread);
+              	// 默认情况，调用android pipeline的func_open_video_decoder，
+              	// 其内部会根据所配置的选项和实际支持的编码类型，自动回退到软解，即创建ffplay pipenode
+                ffp->node_vdec = ffpipeline_open_video_decoder(ffp->pipeline, ffp);
+                if (!ffp->node_vdec)
+                    goto fail;
+            }
+            if ((ret = decoder_start(&is->viddec, video_thread, ffp, "ff_video_dec")) < 0)
+            goto out;
+            break;
+            //……
+    }
+}
+```
+
+解码器的创建时在`stream_component_open`里调用`ffpipeline_open_video_decoder`完成的，创建好后的decoder保存在`ffp->node_vdec`中。接着调用`decoder_start`启动了`video_thread`。
+
+`video_thread`的实现很简单：
+
+```php
+static int video_thread(void *arg)
+{
+    FFPlayer *ffp = (FFPlayer *)arg;
+    int       ret = 0;
+
+    if (ffp->node_vdec) {
+        ret = ffpipenode_run_sync(ffp->node_vdec);
+    }
+    return ret;
+}
+```
+
+直接调用循环的主体`ffpipenode_run_sync`，即pipenode的`func_run_sync`函数。
+
+### 解码
+
+解码工作是在`video_thread`中完成的，也就是由具体pipenode的实现决定。在ijkplayer中，这分为两种情况，一种是硬解，一种是软解。软解的实现基本是ffplay的改造，硬解的实现是调用的MediaCodec。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+### 帧入队
+
+在解码的过程中，需要将已经解码好的帧放入帧队列FrameQueue中。该工作由ff_ffplay中的ffp_queue_picture/queue_picture完成。
+
+```php
+int ffp_queue_picture(FFPlayer *ffp, AVFrame *src_frame, double pts, double duration, int64_t pos, int serial)
+{
+    return queue_picture(ffp, src_frame, pts, duration, pos, serial);
+}
+
+static int queue_picture(FFPlayer *ffp, AVFrame *src_frame, double pts, double duration, int64_t pos, int serial)
+{
+    //……
+}
+```
+
+`ffp_queue_picture`只是简单调用的`queue_picture`，这是为了改变它的可见性（去掉static），方便在其他文件调用该函数。
+
+`queue_picture`的主要功能和结构与ffplay的类似，可以参考[ffplay video显示线程分析](https://zhuanlan.zhihu.com/p/44122324)。所不同的是ijk的显示流程和解码流程与ffplay不同，所以在queue_picture的时候调用`SDL_VoutOverlay`的`func_fill_frame`把帧画面“绘制”到最终的显示图层上。
+
+### seek处理
+
+seek时需要调用解码器的flush：
+
+```c
+static int read_thread(void *arg)
+{
+    //……
+    ret = avformat_seek_file(is->ic, -1, seek_min, seek_target, seek_max, is->seek_flags);
+    if (ret < 0) {
+        //……
+    }
+    else {
+        //……
+        if (is->video_stream >= 0) {
+            if (ffp->node_vdec) {
+              	// 这里调用解码器的flush，即pipenode的func_flush函数
+                ffpipenode_flush(ffp->node_vdec);
+            }
+            packet_queue_flush(&is->videoq);
+            packet_queue_put(&is->videoq, &flush_pkt);
+        }
+        //……
+    }
+    //……
+}
+```
+
+### 销毁
+
+按预期pipenode的销毁应该出现在其创建函数`stream_component_open`对应的`stream_component_close`中，然而并没有。根据`IJKFF_Pipenode`的定义，其销毁应调用`func_destroy`，或者其封装函数`ffpipenode_free`/`ffpipenode_free_p`。
+
+正常流程只在整个播放器销毁时有调用到：
+
+```c
+void ffp_destroy(FFPlayer *ffp)
+{
+    //……
+    ffpipenode_free_p(&ffp->node_vdec);
+    ffpipeline_free_p(&ffp->pipeline);
+    //……
+}
+```
+
+这就意味着，按代码分析的情况看，除第一次外，每次选择视频轨道都会造成一次内存泄漏！不过毕竟还未验证，待验证后再给结论。
+
+# 音视频解码
+
+## 硬解
+
+在android中的ijkplayer是通过封装MediaCodec实现的硬解，以下将从解码器的创建、解码、帧入队三个方面介绍。
+
+### 创建
+
+硬解pipenode的创建是在`stream_component_open`中调用`ffpipeline_open_video_decoder`创建的。`ffpipeline_open_video_decoder`是pipeline的封装，在Android上调用的是ffpipeline_andriod.c中的`func_open_video_decoder`：
+
+```php
+static IJKFF_Pipenode *func_open_video_decoder(IJKFF_Pipeline *pipeline, FFPlayer *ffp)
+{
+    IJKFF_Pipeline_Opaque *opaque = pipeline->opaque;
+    IJKFF_Pipenode        *node = NULL;
+    if (ffp->mediacodec_all_videos || ffp->mediacodec_avc || ffp->mediacodec_hevc || ffp->mediacodec_mpeg2)
+        node = ffpipenode_create_video_decoder_from_android_mediacodec(ffp, pipeline, opaque->weak_vout);
+    if (!node) {
+        node = ffpipenode_create_video_decoder_from_ffplay(ffp);
+    }
+    return node;
+}
+```
+
+这里启用了硬解会调用`ffpipenode_create_video_decoder_from_android_mediacodec`：
+
+```php
+IJKFF_Pipenode *ffpipenode_create_video_decoder_from_android_mediacodec(FFPlayer *ffp, IJKFF_Pipeline *pipeline, SDL_Vout *vout)
+{
+    //……
+    //1. 初始化node
+    IJKFF_Pipenode *node = ffpipenode_alloc(sizeof(IJKFF_Pipenode_Opaque));
+    node->func_destroy  = func_destroy;
+    if (ffp->mediacodec_sync) {
+        node->func_run_sync = func_run_sync_loop;
+    } else {
+        node->func_run_sync = func_run_sync;
+    }
+    node->func_flush    = func_flush;
+
+    //2. 硬解选项检查
+    switch (opaque->codecpar->codec_id) {
+    case AV_CODEC_ID_H264:
+        if (!ffp->mediacodec_avc && !ffp->mediacodec_all_videos) {
+            ALOGE("%s: MediaCodec: AVC/H264 is disabled. codec_id:%d \n", __func__, opaque->codecpar->codec_id);
+            goto fail;
+        }
+        opaque->mcc.profile = opaque->codecpar->profile;
+        opaque->mcc.level   = opaque->codecpar->level;
+    //……
+    }
+
+    //3. 创建MediaFormat
+    ret = recreate_format_l(env, node);
+
+    //4. 选择codec(选择最佳codec name)
+    if (!ffpipeline_select_mediacodec_l(pipeline, &opaque->mcc) || !opaque->mcc.codec_name[0]) {
+        ALOGE("amc: no suitable codec\n");
+        goto fail;
+    }
+
+    //5. 配置codec(创建MediaCodec)
+    ret = reconfigure_codec_l(env, node, jsurface);
+
+    //一些特殊的解码器需要在MediaCodec解码后，增加一级帧队列，队列按pts排序，然后再送出到FrameQueue，源码分析中不考虑该特殊情况。
+    if (opaque->n_buf_out) {
+        int i;
+
+        opaque->amc_buf_out = calloc(opaque->n_buf_out, sizeof(*opaque->amc_buf_out));
+        assert(opaque->amc_buf_out != NULL);
+        for (i = 0; i < opaque->n_buf_out; i++)
+            opaque->amc_buf_out[i].pts = AV_NOPTS_VALUE;
+    }
+    //……
+}
+```
+
+在pipenode的创建中，经历以下步骤：
+
+1. 初始化node；
+2. 硬解选项检查；
+3. 创建MediaFormat。在函数`recreate_format_l`中实现，主要设置mime type、width、height和csd-0；
+4. 选择codec(选择最佳codec name)。主要是调用`ffpipeline_select_mediacodec_l`函数进行选择，`ffpipeline_select_mediacodec_l`会回调到`IjkMediaPlayer`的`onSelectCodec`。在`onSelectCodec`中会根据自己的一套规则取选择合适的codec name（与`MediaCodecList.findDecoderForFormat`的工作类似，不过更灵活）；
+5. 配置codec(创建MediaCodec)。在函数`reconfigure_codec_l`中实现。
+
+接下来看下`reconfigure_codec_l`：
+
+```c
+static int reconfigure_codec_l(JNIEnv *env, IJKFF_Pipenode *node, jobject new_surface)
+{
+    //……
+    //acodec = new MediaCodec
+    if (!opaque->acodec) {
+        opaque->acodec = create_codec_l(env, node);
+    }
+
+    //MediaCodec.setSurface
+    amc_ret = SDL_AMediaCodec_configure_surface(env, opaque->acodec, opaque->input_aformat, opaque->jsurface, NULL, 0);
+
+    //MediaCodec.start
+    amc_ret = SDL_AMediaCodec_start(opaque->acodec);
+    //……
+}
+```
+
+reconfigure的主要流程与java api的使用差不多。典型的`new -> setSurface -> start`。到这里，MediaCodec就创建好，准备接收数据了。
+
+### 解码
+
+解码调用过程：`stream_component_open -> decoder_start -> video_thread -> fun_run_sync`。
+
+在ffpipenode_android_mediacodec_vdec中有两个fun_run_sync的实现，可以通过mediacodec_sync选项进行切换：
+
+```c
+//ffpipenode_create_video_decoder_from_android_mediacodec
+    if (ffp->mediacodec_sync) {
+        node->func_run_sync = func_run_sync_loop;
+    } else {
+        node->func_run_sync = func_run_sync;
+    }
+```
+
+默认使用的是`func_run_sync`:
+
+```php
+static int func_run_sync(IJKFF_Pipenode *node)
+{
+    //……
+    //A. 创建enqueue_thread，喂原始数据
+    opaque->enqueue_thread = SDL_CreateThreadEx(&opaque->_enqueue_thread, enqueue_thread_func, node, "amediacodec_input_thread");
+
+    //B. 循环拉取解码数据
+    while (!q->abort_request) {
+        got_frame = 0;
+        //1. drain_output_buffer获取frame
+        ret = drain_output_buffer(env, node, timeUs, &dequeue_count, frame, &got_frame);
+        //……
+        if (ret != 0) {
+            //拉取出错，release buffer false通知MediaCodec丢弃这一帧
+        }
+        if (got_frame) {
+            duration = (frame_rate.num && frame_rate.den ? av_q2d((AVRational){frame_rate.den, frame_rate.num}) : 0);
+            pts = (frame->pts == AV_NOPTS_VALUE) ? NAN : frame->pts * av_q2d(tb);
+            //2. 解码速度过慢，丢帧
+            if (ffp->framedrop > 0 || (ffp->framedrop && ffp_get_master_sync_type(is) != AV_SYNC_VIDEO_MASTER)) {
+                //逻辑与软解丢帧类似，可以参考ffplay解码线程分析
+            }
+            //3. 帧入队
+            ret = ffp_queue_picture(ffp, frame, pts, duration, av_frame_get_pkt_pos(frame), is->viddec.pkt_serial);
+            if (ret) {
+                //入队出错，release buffer false通知MediaCodec丢弃这一帧
+            }
+            av_frame_unref(frame);
+    }
+    //……
+}
+```
+
+`func_run_sync`的函数比较长，上述代码仅抽取了主干代码。主干代码分为两个部分：
+
+- 创建enqueue_thread，喂原始数据；
+- 循环拉取解码数据；
+
+也就是ijkplayer中把MediaCodec的`queueInputBuffer`和`dequeueOutputBuffer`两个过程分离到了两个线程：`func_run_sync`负责dequeue，dequeue的主要实现在`drain_output_buffer`。
+
+`drain_output_buffer`调用后会取到一帧填充好的AVFrame，之后调用`ffp_queue_picture`将这一帧放入到FrameQueue中。
+
+在分析`drain_output_buffer`前先看下`enqueue_thread_func`：
+
+```p p
+static int enqueue_thread_func(void *arg)
+{
+    while (!q->abort_request && !opaque->abort) {
+        ret = feed_input_buffer(env, node, AMC_INPUT_TIMEOUT_US, &dequeue_count);
+        if (ret != 0) {
+            goto fail;
+        }
+    }
+    ret = 0;
+fail:
+    SDL_AMediaCodecFake_abort(opaque->acodec);
+    ALOGI("MediaCodec: %s: exit: %d", __func__, ret);
+    return ret;
+}
+```
+
+`enqueue_thread_func`的实现比较简单，即循环调用`feed_input_buffer`。
+
+因此，在分析了上述两个线程后，我们找到的3个主要函数是：
+
+- feed_input_buffer：主要调用MediaCodec.queueInputBuffer给MediaCodec喂原始数据；
+- drain_output_buffer：主要调用MediaCodec.dequeueOutputBuffer从MediaCodec拉解码数据；
+- ffp_queue_picture：将解码后的AVFrame送入FrameQueue；
+
+**feed_input_buffer**
+
+```php
+static int feed_input_buffer(JNIEnv *env, IJKFF_Pipenode *node, int64_t timeUs, int *enqueue_count)
+{
+    //……
+    //1. 读Packet，及不连续Packet的处理
+    if (!d->packet_pending || d->queue->serial != d->pkt_serial) {
+        do {
+            ffp_packet_queue_get_or_buffering(ffp, d->queue, &pkt, &d->pkt_serial, &d->finished)；
+            if (ffp_is_flush_packet(&pkt) || opaque->acodec_flush_request) {
+                SDL_AMediaCodec_flush()；
+            }
+        }while (ffp_is_flush_packet(&pkt) || d->queue->serial != d->pkt_serial);
+        av_packet_unref(&d->pkt);
+        d->pkt_temp = d->pkt = pkt;
+        d->packet_pending = 1;
+    }
+
+    //2. 喂数据
+    if (d->pkt_temp.data) {
+        //如果需要重新配置MediaCodec，则重新创建一个
+        if (ffpipeline_is_surface_need_reconfigure_l(pipeline)) {
+            ret = reconfigure_codec_l(env, node, new_surface);
+        }
+        input_buffer_index = SDL_AMediaCodec_dequeueInputBuffer(opaque->acodec, timeUs);
+        copy_size = SDL_AMediaCodec_writeInputData(opaque->acodec, input_buffer_index, d->pkt_temp.data, d->pkt_temp.size);
+        amc_ret = SDL_AMediaCodec_queueInputBuffer(opaque->acodec, input_buffer_index, 0, copy_size, time_stamp, queue_flags);
+    }
+
+    //3. pkt_temp更新
+    if (copy_size < 0) {//无需分包
+        d->packet_pending = 0;
+    } else {
+        d->pkt_temp.dts =
+        d->pkt_temp.pts = AV_NOPTS_VALUE;
+        if (d->pkt_temp.data) {//分包更新
+            d->pkt_temp.data += copy_size;
+            d->pkt_temp.size -= copy_size;
+            if (d->pkt_temp.size <= 0)
+                d->packet_pending = 0;
+        } else {//解码结束
+            d->packet_pending = 0;
+            d->finished = d->pkt_serial;
+        }
+    }
+}
+```
+
+这段代码有3个步骤：
+
+1. 读Packet，及不连续Packet的处理。主要是通过`ffp_packet_queue_get_or_buffering`读一个Packet，如果不连续，就丢Packet和Flush MediaCodec；
+2. 喂数据。MediaCodec的典型步骤：`dequeueInputBuffer -> writeInputData -> queueInputBuffer`；
+3. pkt_temp更新；
+
+导致这段代码不好理解的一个地方是**分包发送**的处理。因为在调用`SDL_AMediaCodec_writeInputData`发送Packet数据的时候，不一定能恰好完整发送，所以需要分多次发送。
+
+分包发送代码中pkt_temp表示要发送的pkt，packet_pending表示pkt_temp中有未发送完的数据。每次发送后，根据已发送大小copy_size更新pkt_temp，直到pkt_temp.size小于0，置packet_pending为0。在读Packet前会先判断packet_pending是否为1，如果为1，则不拉取新的Packet，而是先消耗pkt_temp。这样就达到循环发送Packet的目的了。
+
+> 上述代码是经过大量省略的，被省略的代码还有几个功能点：
+>
+> - reconfig的具体实现，以及如何与fun_run_sync线程同步
+> - mediacodec_handle_resolution_change处理
+> - H264/H265特殊处理
+> - fake frame处理
+
+**drain_output_buffer**
+
+```php
+//drain_output_buffer = lock(opaque->acodec_mutex) + drain_output_buffer_l + unlock(opaque->acodec_mutex)
+static int drain_output_buffer_l(JNIEnv *env, IJKFF_Pipenode *node, int64_t timeUs, int *dequeue_count, AVFrame *frame, int *got_frame)
+{
+    output_buffer_index = SDL_AMediaCodecFake_dequeueOutputBuffer(opaque->acodec, &bufferInfo, timeUs);
+    if (output_buffer_index == AMEDIACODEC__INFO_OUTPUT_BUFFERS_CHANGED) {
+        ALOGI("AMEDIACODEC__INFO_OUTPUT_BUFFERS_CHANGED\n");
+    }
+    else if (output_buffer_index == AMEDIACODEC__INFO_OUTPUT_FORMAT_CHANGED) {
+        ALOGI("AMEDIACODEC__INFO_OUTPUT_FORMAT_CHANGED\n");
+    }
+    else if (output_buffer_index == AMEDIACODEC__INFO_TRY_AGAIN_LATER) {
+        AMCTRACE("AMEDIACODEC__INFO_TRY_AGAIN_LATER\n");
+    }
+    else if (output_buffer_index < 0) {
+        goto done;
+    }
+    else if (output_buffer_index >= 0) {
+        if (opaque->n_buf_out) {
+            // 如果开启了缓冲区，则对缓冲区内的帧进行pts排序后输出。
+          	// 看代码，目前只有codec是OMX.TI.DUCATI1.才启用。也就是默认MediaCodec的输出都是pts排序好的
+        }else {
+            ret = amc_fill_frame(node, frame, got_frame, output_buffer_index, SDL_AMediaCodec_getSerial(opaque->acodec), &bufferInfo);
+        }
+    }
+
+done:
+    if (opaque->decoder->queue->abort_request)
+        ret = -1;
+    else
+        ret = 0;
+fail:
+    return ret;
+}
+```
+
+`drain_output_buffer`相比`feed_input_buffer`来的简单，主要是调用`SDL_AMediaCodecFake_dequeueOutputBuffer`（即MediaCodec.dequeueOutputBuffer），根据返回值打印调试信息。如果是`output_buffer_index >= 0`，则调用`amc_fill_frame`把bufferinfo填充到AVFrame中。
+
+`amc_fill_frame`主要是填充Frame的宽、高、pts等信息，把bufferinfo填入到Opaque中，并没有填充真正的图像数据。Frame显示的时候再利用这些信息通过MediaCodec的releasseOutputBuffer进行显示。
+
+### 帧入队
+
+在[ijkplayer 解码实现分析——软解篇](https://zhuanlan.zhihu.com/p/45262272)中我们分析了`queue_picture`(`ffp_queue_picture`封装的是`queue_picture`)的逻辑。与ffplay的queue_picture的差异在于增加了一些“绘图操作”，这些绘图操作是通过`SDL_Vout_CreateOverlay -> SDL_VoutFillFrameYUVOverlay`完成。
+
+`SDL_Vout_CreateOverlay`会调用具体`vout->create_overlay`，`SDL_VoutFillFrameYUVOverlay`会调用`overlay->func_fill_frame`。
+
+对于MediaCodec而言，`vout->create_overlay`会调用到ijksdl_vout_overlay_android_mediacodec.c中的`SDL_VoutAMediaCodec_CreateOverlay`，这个函数中关键的几行是：
+
+```php
+SDL_VoutOverlay_Opaque *opaque = overlay->opaque;
+opaque->buffer_proxy  = NULL;
+overlay->opaque_class = &g_vout_overlay_amediacodec_class;
+overlay->format       = SDL_FCC__AMC;
+```
+
+即：mediacodec的overlay的format指定为SDL_FCC__AMC，并且在opauqe中有一个buffer_proxy用于保存mediacodec解码后的buffer_index和bufferinfo。
+
+> SDL_FCC__AMC主要用于在显示函数（ijksdl_vout_android_nativewindow.c）func_display_overlay_l中判断是否应该调用`SDL_VoutOverlayAMediaCodec_releaseFrame_l`来显示。分析见[ijkplayer video显示分析](https://zhuanlan.zhihu.com/p/45237178)
+
+对于`overlay->func_fill_frame`会调用到ijksdl_vout_overlay_android_mediacodec.c中的`func_fill_frame`，这个函数中关键的几行是：
+
+```php
+opaque->buffer_proxy = (SDL_AMediaCodecBufferProxy *)frame->opaque;
+overlay->opaque_class = &g_vout_overlay_amediacodec_class;
+overlay->format     = SDL_FCC__AMC;
+overlay->w = (int)frame->width;
+overlay->h = (int)frame->height;
+```
+
+在`drain_output_buffer`中分析过，`amc_fill_frame`会把bufferinfo填入到AVFrame的Opaque中，这里只是再复制到了overlay->opaque中，方便在显示时访问该变量。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## 软解
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -738,6 +1366,9 @@ static int ijkmp_prepare_async_l(IjkMediaPlayer *mp)
 - [ijkplayer 源码分析 - 简书 (jianshu.com)](https://www.jianshu.com/p/32a1d821189b)
 - [带着问题，再读ijkplayer源码_mob604756ffeae8的技术博客_51CTO博客](https://blog.51cto.com/u_15127656/2783837?abTest=51cto)
 - [Android NDK MediaCodec在ijkplayer中的实践 - 简书 (jianshu.com)](https://www.jianshu.com/p/41d3147a5e07)
+- [ijkplayer 解码框架分析 - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/45251444?ivk_sa=1024320u)
+- [ijkplayer 解码实现分析——硬解篇 - 知乎 (zhihu.com)](https://www.zhihu.com/column/p/45441051)
+- [初识MediaCodec - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/45224834)
 - 
 
 
