@@ -1274,44 +1274,549 @@ overlay->h = (int)frame->height;
 
 在`drain_output_buffer`中分析过，`amc_fill_frame`会把bufferinfo填入到AVFrame的Opaque中，这里只是再复制到了overlay->opaque中，方便在显示时访问该变量。
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ## 软解
 
+软解的pipenode定义在ffpipenode_ffplay_vdec.h/c中。通过函数`ffpipenode_create_video_decoder_from_ffplay`来创建一个软解码器。不过ijkplayer中ffplay pipenode并不是由ffplay pipeline创建，而是由android pipeline创建：
+
+```php
+//ffpipeline_android.c
+static IJKFF_Pipenode *func_open_video_decoder(IJKFF_Pipeline *pipeline, FFPlayer *ffp)
+{
+    IJKFF_Pipeline_Opaque *opaque = pipeline->opaque;
+    IJKFF_Pipenode        *node = NULL;
+
+    //如果有启用任何一种硬解选项，则创建mediacodec video decoder
+    if (ffp->mediacodec_all_videos || ffp->mediacodec_avc || ffp->mediacodec_hevc || ffp->mediacodec_mpeg2)
+        node = ffpipenode_create_video_decoder_from_android_mediacodec(ffp, pipeline, opaque->weak_vout);
+
+    //如果没有启用硬解，或者创建失败，则返回ffplay video decoder
+    if (!node) {
+        node = ffpipenode_create_video_decoder_from_ffplay(ffp);
+    }
+    return node;
+}
+```
+
+`ffpipenode_create_video_decoder_from_ffplay`定义如下：
+
+```php
+IJKFF_Pipenode *ffpipenode_create_video_decoder_from_ffplay(FFPlayer *ffp)
+{
+    IJKFF_Pipenode *node = ffpipenode_alloc(sizeof(IJKFF_Pipenode_Opaque));
+    if (!node)
+        return node;
+
+    IJKFF_Pipenode_Opaque *opaque = node->opaque;
+    opaque->ffp         = ffp;
+
+    node->func_destroy  = func_destroy;
+    node->func_run_sync = func_run_sync;
+
+    ffp_set_video_codec_info(ffp, AVCODEC_MODULE_NAME, avcodec_get_name(ffp->is->viddec.avctx->codec_id));
+    ffp->stat.vdec_type = FFP_PROPV_DECODER_AVCODEC;
+    return node;
+}
+```
+
+软解的关键实现在`func_run_sync`:
+
+```c
+static int func_run_sync(IJKFF_Pipenode *node)
+{
+    IJKFF_Pipenode_Opaque *opaque = node->opaque;
+    return ffp_video_thread(opaque->ffp);
+}
+
+int ffp_video_thread(FFPlayer *ffp)
+{
+    return ffplay_video_thread(ffp);
+}
+```
+
+这里的`ffplay_video_thread`实现基本与ffplay的`video_thread`是一样的，其分析参考[ffplay解码线程分析](https://zhuanlan.zhihu.com/p/43948483)
+
+### queue_picture
+
+软解与ffplay有所不同的地方在于`queue_picture`(将解码帧放入FrameQueue中)：
+
+```c
+static int queue_picture(FFPlayer *ffp, AVFrame *src_frame, double pts, double duration, int64_t pos, int serial)
+{
+    //……
+    if (!(vp = frame_queue_peek_writable(&is->pictq)))
+        return -1;
+
+    //创建overlay
+    if (!vp->bmp || !vp->allocated ||
+        vp->width  != src_frame->width ||
+        vp->height != src_frame->height ||
+        vp->format != src_frame->format) {
+
+        if (vp->width != src_frame->width || vp->height != src_frame->height)
+            ffp_notify_msg3(ffp, FFP_MSG_VIDEO_SIZE_CHANGED, src_frame->width, src_frame->height);
+
+        vp->allocated = 0;
+        vp->width = src_frame->width;
+        vp->height = src_frame->height;
+        vp->format = src_frame->format;
+
+        alloc_picture(ffp, src_frame->format);
+
+        if (is->videoq.abort_request)
+            return -1;
+    }
+
+    //填充overlay
+    if (vp->bmp) {
+        SDL_VoutLockYUVOverlay(vp->bmp);
+        if (SDL_VoutFillFrameYUVOverlay(vp->bmp, src_frame) < 0) {
+            av_log(NULL, AV_LOG_FATAL, "Cannot initialize the conversion context\n");
+            exit(1);
+        }
+        SDL_VoutUnlockYUVOverlay(vp->bmp);
+
+        //和ffplay类似，保存frame信息。不同的是，不保存frame数据
+        vp->pts = pts;
+        vp->duration = duration;
+        vp->pos = pos;
+        vp->serial = serial;
+        vp->sar = src_frame->sample_aspect_ratio;
+        vp->bmp->sar_num = vp->sar.num;
+        vp->bmp->sar_den = vp->sar.den;
+
+        frame_queue_push(&is->pictq);
+        if (!is->viddec.first_frame_decoded) {
+            ALOGD("Video: first frame decoded\n");
+            ffp_notify_msg1(ffp, FFP_MSG_VIDEO_DECODED_START);
+            is->viddec.first_frame_decoded_time = SDL_GetTickHR();
+            is->viddec.first_frame_decoded = 1;
+        }
+    }
+
+    return 0;
+}
+```
+
+可以看到queue_picture中做了一些“绘图”相关的操作，即把AVFrame的数据绘制到vout overlay上。（这样就可以在显示的时候不关心具体的解码类型了）
+
+#### 创建overlay
+
+正常情况下`vp->bmp`创建一次后可重复使用，不需要重新创建。只有格式变化后，才需要调用`alloc_picture`重新创建。
+
+```c
+static void alloc_picture(FFPlayer *ffp, int frame_format)
+{
+    //……
+    vp = &is->pictq.queue[is->pictq.windex];	//取当前要写入的帧，即peek_writabe的帧
+    free_picture(vp);													//SDL_VoutFreeYUVOverlay(vp->bmp);
+
+    SDL_VoutSetOverlayFormat(ffp->vout, ffp->overlay_format);
+
+    vp->bmp = SDL_Vout_CreateOverlay(vp->width, vp->height,
+                                   frame_format,
+                                   ffp->vout);
+    //……
+    SDL_LockMutex(is->pictq.mutex);
+    vp->allocated = 1;
+    SDL_CondSignal(is->pictq.cond);
+    SDL_UnlockMutex(is->pictq.mutex);
+}
+```
+
+`alloc_picture`主要是通过调用SDL_Vout的接口，根据frame_format来创建一个Overlay。在[ijkplayer video显示分析](https://zhuanlan.zhihu.com/p/45237178)中分析过对于android默认通过`SDL_VoutAndroid_CreateForAndroidSurface`创建vout。该vout实现对应的overlay创建函数是：
+
+```c
+//SDL_LockMutex(vout->mutex);
+static SDL_VoutOverlay *func_create_overlay_l(int width, int height, int frame_format, SDL_Vout *vout)
+{
+    switch (frame_format) {
+    case IJK_AV_PIX_FMT__ANDROID_MEDIACODEC:
+        return SDL_VoutAMediaCodec_CreateOverlay(width, height, vout);
+    default:
+        return SDL_VoutFFmpeg_CreateOverlay(width, height, frame_format, vout);
+    }
+}
+//SDL_UnlockMutex(vout->mutex);
+```
+
+如果配置的是硬解，这里的frame_format将是IJK_AV_PIX_FMT__ANDROID_MEDIACODEC，会创建mediacodec“显示”所需的overlay，否则，创建的ffmpeg overlay。
+
+#### 填充overlay
+
+overlay的填充是调用的`SDL_VoutFillFrameYUVOverlay`，即`overlay->func_fill_frame`。对于软解调用的是ijksdl_vout_overlay_ffmpeg中的`func_fill_frame`。
+
+```php
+static int func_fill_frame(SDL_VoutOverlay *overlay, const AVFrame *frame)
+{
+    //……
+    //1. 根据format决定后面的填充方法
+    switch (overlay->format) {
+        case SDL_FCC_YV12:
+            need_swap_uv = 1;
+            // no break;
+        case SDL_FCC_I420:
+            if (frame->format == AV_PIX_FMT_YUV420P || frame->format == AV_PIX_FMT_YUVJ420P) {
+                // ALOGE("direct draw frame");
+                use_linked_frame = 1;
+                dst_format = frame->format;
+            } else {
+                // ALOGE("copy draw frame");
+                dst_format = AV_PIX_FMT_YUV420P;
+            }
+            break;
+        //……
+    }
+
+    //2. 准备内部frame用于填充；如果是use_linked_frame，则引用输入参数frame；否则开辟内存，存放到managed_frame
+    if (use_linked_frame) {
+        // linked frame
+        av_frame_ref(opaque->linked_frame, frame);
+
+        overlay_fill(overlay, opaque->linked_frame, opaque->planes);
+
+        if (need_swap_uv)
+            FFSWAP(Uint8*, overlay->pixels[1], overlay->pixels[2]);
+    } else {
+        // managed frame
+        AVFrame* managed_frame = opaque_obtain_managed_frame_buffer(opaque);
+        if (!managed_frame) {
+            ALOGE("OOM in opaque_obtain_managed_frame_buffer");
+            return -1;
+        }
+
+        overlay_fill(overlay, opaque->managed_frame, opaque->planes);
+
+        // setup frame managed
+        for (int i = 0; i < overlay->planes; ++i) {
+            swscale_dst_pic.data[i] = overlay->pixels[i];
+            swscale_dst_pic.linesize[i] = overlay->pitches[i];
+        }
+
+        if (need_swap_uv)
+            FFSWAP(Uint8*, swscale_dst_pic.data[1], swscale_dst_pic.data[2]);
+    }
+
+    //3. 执行填充动作；对于use_linked_frame引用frame后即已填充好；否则需要用sws_scale转化到目标格式(可能是为了方便opengl绘图)
+    if (use_linked_frame) {
+        // do nothing
+    } else if (ijk_image_convert(frame->width, frame->height,
+                                 dst_format, swscale_dst_pic.data, swscale_dst_pic.linesize,
+                                 frame->format, (const uint8_t**) frame->data, frame->linesize)) {
+        opaque->img_convert_ctx = sws_getCachedContext(opaque->img_convert_ctx,
+                                                       frame->width, frame->height, frame->format, frame->width, frame->height,
+                                                       dst_format, opaque->sws_flags, NULL, NULL, NULL);
+        if (opaque->img_convert_ctx == NULL) {
+            ALOGE("sws_getCachedContext failed");
+            return -1;
+        }
+
+        sws_scale(opaque->img_convert_ctx, (const uint8_t**) frame->data, frame->linesize,
+                  0, frame->height, swscale_dst_pic.data, swscale_dst_pic.linesize);
+
+        if (!opaque->no_neon_warned) {
+            opaque->no_neon_warned = 1;
+            ALOGE("non-neon image convert %s -> %s", av_get_pix_fmt_name(frame->format), av_get_pix_fmt_name(dst_format));
+        }
+    }
+}
+```
+
+在queue_picture中将frame填充到opaque后，就可以调用`SDL_VoutDisplayYUVOverlay`去显示了。显示的逻辑可以参考[ffplay video显示线程分析](http://zhuanlan.zhihu.com/p/44122324)和[ijkplayer video显示分析](https://zhuanlan.zhihu.com/p/45237178)。
+
+# 视频显示
+
+ffplay基于sdl显示图像，ijkplayer在显示上摒弃了sdl，而是另辟蹊径封装了一套自己的显示接口。
+
+## 基础概念
+
+还是从显示函数开始看起(ff_ffplay.c)：
+
+```c
+stream_open -> SDL_CreateThreadEx video_refresh_thread
+    ->video_refresh
+        ->video_display2
+            ->video_image_display2
+                ->SDL_VoutDisplayYUVOverlay
+```
+
+整个调用链和ffplay保持一致，只是显示线程从主线程改变了到了一个独立线程中。最后在显示一帧图像的时候调用的是`SDL_VoutDisplayYUVOverlay`
+
+```c
+int SDL_VoutDisplayYUVOverlay(SDL_Vout *vout, SDL_VoutOverlay *overlay)
+{
+    if (vout && overlay && vout->display_overlay)
+        return vout->display_overlay(vout, overlay);
+
+    return -1;
+}
+```
+
+在`SDL_VoutDisplayYUVOverlay`的函数里，我们看到了两个新的概念：`SDL_Vout`，`SDL_VoutOverlay`
+
+这两个是ijk中才有的概念，是为了封装“显示上下文”和“显示层”准备的。
+
+
+
+**SDL_Vout**
+
+ijk中使用SDL_Vout表示一个显示上下文，或者理解为一块画布。比较接近于SDL中的Render。SDL_VoutOverlay表示显示层，或者理解为一块图像数据。比较接近于SDL中的Texture。
+
+SDL_Vout的定义如下：
+
+```c
+struct SDL_Vout {
+    SDL_mutex *mutex;
+
+    SDL_Class       *opaque_class;
+    SDL_Vout_Opaque *opaque;
+    SDL_VoutOverlay *(*create_overlay)(int width, int height, int frame_format, SDL_Vout *vout);
+    void (*free_l)(SDL_Vout *vout);
+    int (*display_overlay)(SDL_Vout *vout, SDL_VoutOverlay *overlay);
+
+    Uint32 overlay_format;
+};
+```
+
+有了解过[C语言中的子类](https://zhuanlan.zhihu.com/p/42919249)的应该对于这样的结构体并不陌生。它定义了一个“类/接口”，支持的方法有`create_overlay`，`free_l`，`display_overlay`。其中，最重要的是`display_overlay`方法，即如何去呈现一个overlay.
+
+既然是一个接口，就有对应的实现类：
+
+- dummy: 这是一个空实现。定义在ijk_sdl_vout_dummy.c。
+- android surface vout: 这是基于Android的surface实现的。定义在ijk_sdl_android_surface.c，ijk_vout_android_nativewindow.c
+
+
+
+**SDL_VoutOverlay**
+
+SDL_VoutOverlay的定义如下：
+
+```c
+struct SDL_VoutOverlay {
+    int w; /**< Read-only */
+    int h; /**< Read-only */
+    Uint32 format; /**< Read-only */
+    int planes; /**< Read-only */
+    Uint16 *pitches; /**< in bytes, Read-only */
+    Uint8 **pixels; /**< Read-write */
+
+    int is_private;
+
+    int sar_num;
+    int sar_den;
+
+    SDL_Class               *opaque_class;
+    SDL_VoutOverlay_Opaque  *opaque;
+
+    void    (*free_l)(SDL_VoutOverlay *overlay);
+    int     (*lock)(SDL_VoutOverlay *overlay);
+    int     (*unlock)(SDL_VoutOverlay *overlay);
+    void    (*unref)(SDL_VoutOverlay *overlay);
+
+    int     (*func_fill_frame)(SDL_VoutOverlay *overlay, const AVFrame *frame);
+};
+```
+
+同样也是一个c风格的“类/接口”，定义的方法有`free_l/lock/unlock/unref/func_fill_frame`，其中最重要的是`func_fill_frame`，也就是把AVFrame的图像“画”到overlay上。
+
+它也有对应的几种实现：
+
+- ffmpeg overlay: 用于软解绘图，主要是内存图像数据的格式转换。定义在ijksdl_vout_ffmpeg_overlay.c
+- mediacodec overlay: 用于mediacodec硬解绘图，主要用于MediaCodec的buffer index wrap和管理。定义在ijksdl_vout_overlay_android_mediacodec.c。（mediacodec可以直接绑定Surface解码，以提升效率，这种方式的解码是拿不到图像数据的，所以这里要wrap index）
+
+
+
+**目录结构**
+
+上面提到的一些结构体和函数，都在目录ijkmedia/ijksdl/下：
+
+```text
++ ijkmedia/ijksdl
+    - ijk_sdl.h                             //包含其他sdl头文件
+    - ijksdl_vout.h/c                       //封装层，提供SDL_VoutXXX的函数调用vout和overlay
+    - ijksdl_vout_internal.h                //ijksdl目录内部使用的一些util函数
+    + dummy                                 //dummy vout实现
+    + ffmpeg
+        - ijksdl_vout_overlay_ffmpeg.h/c    //ffmpeg overlay实现
+    + android
+        - ijksdl_vout_android_nativewindow.c//android vout的主要实现
+        - ijksdl_vout_android_surface.h/c   //android vout与Java层Surface连接层
+        - ijksdl_vout_overlay_android_mediacodec.h/c    //mediacodec overlay实现
+```
+
+当然，目录里还包括的timer/mutex/thread等的封装，另外音频相关的sdl封装也在这个目录里，将在音频输出一文中分析。
+
+## 流程分析
+
+Android上的SDL_Vout是通过ijksdl_vout_android_surface.c中的`SDL_VoutAndroid_CreateForAndroidSurface`函数创建的，对应的SDL_Vout的实现在ijksdl_vout_android_nativewindow.c。
+
+`SDL_VoutAndroid_CreateForAndroidSurface`调用流程如下：
+
+```text
+new IjkMediaPlayer() 
+    -> initPlayer() 
+        -> native_setup() 
+            -> IjkMediaPlayer_native_setup() 
+                -> ijkmp_android_create() 
+                    -> SDL_VoutAndroid_CreateForAndroidSurface()
+```
+
+SDL_Vout创建后就可以用来显示SDL_VoutOverlay了，overlay的创建和填充是在解码线程中完成，将在解码线程一文中分析，这里略过。直接看显示部分。
+
+前面分析了overlay的显示是在video_display2中调用`SDL_VoutDisplayYUVOverlay`显示的。`SDL_VoutDisplayYUVOverlay`只是封装了具体SDL_Vout实现类的`display_overlay`方法。对于Android，对应的是ijksdl_vout_android_nativewindow.c中的`func_display_overlay`：
+
+```c
+static int func_display_overlay(SDL_Vout *vout, SDL_VoutOverlay *overlay)
+{
+    SDL_LockMutex(vout->mutex);
+    int retval = func_display_overlay_l(vout, overlay);
+    SDL_UnlockMutex(vout->mutex);
+    return retval;
+}
+```
+
+加锁调用`func_display_overlay_l`(精简了代码，直接看正常流程代码)：
+
+```c
+static int func_display_overlay_l(SDL_Vout *vout, SDL_VoutOverlay *overlay)
+{
+    switch(overlay->format) {
+    case SDL_FCC__AMC: {
+        // only ANativeWindow support
+        IJK_EGL_terminate(opaque->egl);
+        return SDL_VoutOverlayAMediaCodec_releaseFrame_l(overlay, NULL, true);
+    }
+    case SDL_FCC_RV24:
+    case SDL_FCC_I420:
+    case SDL_FCC_I444P10LE: {
+        // only GLES support
+        if (opaque->egl)
+            return IJK_EGL_display(opaque->egl, native_window, overlay);
+        break;
+    }
+    case SDL_FCC_YV12:
+    case SDL_FCC_RV16:
+    case SDL_FCC_RV32: {
+        // both GLES & ANativeWindow support
+        if (vout->overlay_format == SDL_FCC__GLES2 && opaque->egl)
+            return IJK_EGL_display(opaque->egl, native_window, overlay);
+        break;
+    }
+    }
+
+    // fallback to ANativeWindow
+    IJK_EGL_terminate(opaque->egl);
+    return SDL_Android_NativeWindow_display_l(native_window, overlay); 
+}
+```
+
+这里主要是根据传入overlay的format选择具体的显示方法。这里有3种显示方法：
+
+- 如果是SDL_FCC__AMC，则是MediaCodec的特定format，用`SDL_VoutOverlayAMediaCodec_releaseFrame_l`显示
+- 如果是其他EGL支持的格式，则用`IJK_EGL_display`显示
+- 最后，如果都无法显示，就Fallback到直接用ndk nativewindow的api显示
+
+其中第一种是针对MediaCodec的硬解显示方式，后两种都是软解的显示方式。
+
+接下来分别从硬解和软解分类分析显示流程。
+
+
+
+**硬解显示**
+
+MediaCodec是Android硬解的统一API，方便了不同芯片厂商接入。关于MediaCodec的使用，可以参考这篇：https://zhuanlan.zhihu.com/p/45224834。
+
+MediaCodec解码时设置一个Surface以减少显示时的数据拷贝，可以提高效率。此时解码后拿到的是一个index，并非解码后的图像数据，ijk中将其封装为`SDL_AMediaCodecBufferProxy`，定义在jksdl_vout_android_nativewindow.c中：
+
+```c
+struct SDL_AMediaCodecBufferProxy
+{
+    int buffer_id;
+    int buffer_index;
+    int acodec_serial;
+    SDL_AMediaCodecBufferInfo buffer_info;
+};
+```
+
+SDL_AMediaCodecBufferProxy的实例在android overlay的SDL_VoutOverlay_Opaque中定义：
+
+```c
+typedef struct SDL_VoutOverlay_Opaque {
+    SDL_mutex *mutex;
+
+    SDL_Vout                   *vout;
+    SDL_AMediaCodec            *acodec;
+
+    SDL_AMediaCodecBufferProxy *buffer_proxy;//这个是dequeueOutputBuffer的封装
+
+    Uint16 pitches[AV_NUM_DATA_POINTERS];
+    Uint8 *pixels[AV_NUM_DATA_POINTERS];
+} SDL_VoutOverlay_Opaque;
+```
+
+MediaCodec要显示一帧，是通过调用`releaseOutputBuffer`通知MediaCodec该显示哪一帧的。这在ijk中是封装为`SDL_AMediaCodec_releaseOutputBuffer`。
+
+回到刚才的思路，看下`SDL_VoutOverlayAMediaCodec_releaseFrame_l`函数：
+
+```c
+int  SDL_VoutOverlayAMediaCodec_releaseFrame_l(SDL_VoutOverlay *overlay, SDL_AMediaCodec *acodec, bool render)
+{
+    if (!check_object(overlay, __func__))
+        return -1;
+
+    SDL_VoutOverlay_Opaque *opaque = overlay->opaque;
+    return SDL_VoutAndroid_releaseBufferProxyP_l(opaque->vout, &opaque->buffer_proxy, render);
+}
+```
+
+`SDL_VoutAndroid_releaseBufferProxyP_l`调用了`SDL_VoutAndroid_releaseBufferProxy_l`：
+
+```c
+//这里省略了打印调试信息的代码
+static int SDL_VoutAndroid_releaseBufferProxy_l(SDL_Vout *vout, SDL_AMediaCodecBufferProxy *proxy, bool render)
+{
+    SDL_Vout_Opaque *opaque = vout->opaque;
+
+    //归还到SDL_AMediaCodecBufferProxy对象池
+    ISDL_Array__push_back(&opaque->overlay_pool, proxy);
+
+    //如果serial已经变化，说明该帧已经无效(比如是seek前的帧)，不显示，丢弃
+    if (!SDL_AMediaCodec_isSameSerial(opaque->acodec, proxy->acodec_serial)) {
+        return 0;
+    }
+
+    //buffer_index即dequeueOutputBuffer的返回值，小于0说明不是一个图像帧(具体参考官方API)，无需显示
+    if (proxy->buffer_index < 0) {
+        return 0;
+    } 
+    //FAKE_FRAME是一个特殊标志，表示当前帧只是占位，不应该显示(具体分析将在ijkplay硬解一文分析)
+    else if (proxy->buffer_info.flags & AMEDIACODEC__BUFFER_FLAG_FAKE_FRAME) {
+        proxy->buffer_index = -1;
+        return 0;
+    }
+
+    //到这里，就可以显示了
+    sdl_amedia_status_t amc_ret = SDL_AMediaCodec_releaseOutputBuffer(opaque->acodec, proxy->buffer_index, render);    
+    if (amc_ret != SDL_AMEDIA_OK) {//显示失败，返回-1
+        proxy->buffer_index = -1;
+        return -1;
+    }
+
+    proxy->buffer_index = -1;
+    return 0;
+}
+```
+
+上面代码，主要做了3件事情：
+
+1. 归还proxy到SDL_AMediaCodecBufferProxy对象池。因为解码的调用很频繁，如果重复分配释放proxy对象，内存压力会比较大，所以这里引入了一个对象池进行优化。
+2. 做一些合法性检查。比如检查serial变化、检查index值、检查占位符等
+3. 调用SDL_AMediaCodec_releaseOutputBuffer（也就是MediaCodec.releaseOutputBuffer）显示
+
+
+
+**软解显示**
+
+这块没怎么接触，有空分析后补充。
 
 
 
@@ -1331,12 +1836,7 @@ overlay->h = (int)frame->height;
 
 
 
-
-
-
-
-
-
+# 音频输出
 
 
 
@@ -1369,6 +1869,8 @@ overlay->h = (int)frame->height;
 - [ijkplayer 解码框架分析 - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/45251444?ivk_sa=1024320u)
 - [ijkplayer 解码实现分析——硬解篇 - 知乎 (zhihu.com)](https://www.zhihu.com/column/p/45441051)
 - [初识MediaCodec - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/45224834)
+- [ijkplayer video显示分析 - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/45237178)
+- [ijkplayer audio输出分析 - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/45518054)
 - 
 
 
