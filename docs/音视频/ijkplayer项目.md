@@ -1539,7 +1539,7 @@ stream_open -> SDL_CreateThreadEx video_refresh_thread
                 ->SDL_VoutDisplayYUVOverlay
 ```
 
-整个调用链和ffplay保持一致，只是显示线程从主线程改变了到了一个独立线程中。最后在显示一帧图像的时候调用的是`SDL_VoutDisplayYUVOverlay`
+整个调用链和ffplay保持一致，只是显示线程从主线程改变了，到了一个独立线程中。最后在显示一帧图像的时候调用的是`SDL_VoutDisplayYUVOverlay`：
 
 ```php
 int SDL_VoutDisplayYUVOverlay(SDL_Vout *vout, SDL_VoutOverlay *overlay)
@@ -1557,14 +1557,13 @@ int SDL_VoutDisplayYUVOverlay(SDL_Vout *vout, SDL_VoutOverlay *overlay)
 
 **SDL_Vout**
 
-ijk中使用SDL_Vout表示一个显示上下文，或者理解为一块画布。比较接近于SDL中的Render。SDL_VoutOverlay表示显示层，或者理解为一块图像数据。比较接近于SDL中的Texture。
+ijk中使用SDL_Vout表示一个显示上下文，或者理解为一块画布，比较接近于SDL中的Render。SDL_VoutOverlay表示显示层，或者理解为一块图像数据，比较接近于SDL中的Texture。
 
 SDL_Vout的定义如下：
 
-```c
+```php
 struct SDL_Vout {
     SDL_mutex *mutex;
-
     SDL_Class       *opaque_class;
     SDL_Vout_Opaque *opaque;
     SDL_VoutOverlay *(*create_overlay)(int width, int height, int frame_format, SDL_Vout *vout);
@@ -1575,18 +1574,18 @@ struct SDL_Vout {
 };
 ```
 
-有了解过[C语言中的子类](https://zhuanlan.zhihu.com/p/42919249)的应该对于这样的结构体并不陌生。它定义了一个“类/接口”，支持的方法有`create_overlay`，`free_l`，`display_overlay`。其中，最重要的是`display_overlay`方法，即如何去呈现一个overlay.
+定义了一个“类/接口”，支持的方法有`create_overlay`，`free_l`，`display_overlay`。其中，最重要的是`display_overlay`方法，即如何去呈现一个overlay。
 
 既然是一个接口，就有对应的实现类：
 
-- dummy: 这是一个空实现。定义在ijk_sdl_vout_dummy.c。
-- android surface vout: 这是基于Android的surface实现的。定义在ijk_sdl_android_surface.c，ijk_vout_android_nativewindow.c
+- dummy: 这是一个空实现，定义在ijk_sdl_vout_dummy.c；
+- android surface vout: 这是基于Android的surface实现的，定义在ijk_sdl_android_surface.c，ijk_vout_android_nativewindow.c；
 
 **SDL_VoutOverlay**
 
 SDL_VoutOverlay的定义如下：
 
-```c
+```php
 struct SDL_VoutOverlay {
     int w; /**< Read-only */
     int h; /**< Read-only */
@@ -1612,20 +1611,18 @@ struct SDL_VoutOverlay {
 };
 ```
 
-同样也是一个c风格的“类/接口”，定义的方法有`free_l/lock/unlock/unref/func_fill_frame`，其中最重要的是`func_fill_frame`，也就是把AVFrame的图像“画”到overlay上。
+定义的方法有`free_l/lock/unlock/unref/func_fill_frame`，其中最重要的是`func_fill_frame`，也就是把AVFrame的图像“画”到overlay上。
 
 它也有对应的几种实现：
 
-- ffmpeg overlay: 用于软解绘图，主要是内存图像数据的格式转换。定义在ijksdl_vout_ffmpeg_overlay.c
-- mediacodec overlay: 用于mediacodec硬解绘图，主要用于MediaCodec的buffer index wrap和管理。定义在ijksdl_vout_overlay_android_mediacodec.c。（mediacodec可以直接绑定Surface解码，以提升效率，这种方式的解码是拿不到图像数据的，所以这里要wrap index）
-
-
+- ffmpeg overlay：用于软解绘图，主要是内存图像数据的格式转换。定义在ijksdl_vout_ffmpeg_overlay.c；
+- mediacodec overlay：用于mediacodec硬解绘图，主要用于MediaCodec的buffer index wrap和管理。定义在ijksdl_vout_overlay_android_mediacodec.c。（mediacodec可以直接绑定Surface解码，以提升效率，这种方式的解码是拿不到图像数据的，所以这里要wrap index）；
 
 **目录结构**
 
 上面提到的一些结构体和函数，都在目录ijkmedia/ijksdl/下：
 
-```text
+```php
 + ijkmedia/ijksdl
     - ijk_sdl.h                             //包含其他sdl头文件
     - ijksdl_vout.h/c                       //封装层，提供SDL_VoutXXX的函数调用vout和overlay
@@ -1636,10 +1633,10 @@ struct SDL_VoutOverlay {
     + android
         - ijksdl_vout_android_nativewindow.c//android vout的主要实现
         - ijksdl_vout_android_surface.h/c   //android vout与Java层Surface连接层
-        - ijksdl_vout_overlay_android_mediacodec.h/c    //mediacodec overlay实现
+        - ijksdl_vout_overlay_android_mediacodec.h/c //mediacodec overlay实现
 ```
 
-当然，目录里还包括的timer/mutex/thread等的封装，另外音频相关的sdl封装也在这个目录里，将在音频输出一文中分析。
+目录里还包括的timer/mutex/thread等的封装，另外音频相关的sdl封装也在这个目录里。
 
 ## 流程分析
 
@@ -1647,7 +1644,7 @@ Android上的SDL_Vout是通过ijksdl_vout_android_surface.c中的`SDL_VoutAndroi
 
 `SDL_VoutAndroid_CreateForAndroidSurface`调用流程如下：
 
-```text
+```php
 new IjkMediaPlayer() 
     -> initPlayer() 
         -> native_setup() 
@@ -1656,11 +1653,11 @@ new IjkMediaPlayer()
                     -> SDL_VoutAndroid_CreateForAndroidSurface()
 ```
 
-SDL_Vout创建后就可以用来显示SDL_VoutOverlay了，overlay的创建和填充是在解码线程中完成，将在解码线程一文中分析，这里略过。直接看显示部分。
+SDL_Vout创建后就可以用来显示SDL_VoutOverlay了，overlay的创建和填充是在解码线程中完成。
 
 前面分析了overlay的显示是在video_display2中调用`SDL_VoutDisplayYUVOverlay`显示的。`SDL_VoutDisplayYUVOverlay`只是封装了具体SDL_Vout实现类的`display_overlay`方法。对于Android，对应的是ijksdl_vout_android_nativewindow.c中的`func_display_overlay`：
 
-```c
+```php
 static int func_display_overlay(SDL_Vout *vout, SDL_VoutOverlay *overlay)
 {
     SDL_LockMutex(vout->mutex);
@@ -1672,7 +1669,7 @@ static int func_display_overlay(SDL_Vout *vout, SDL_VoutOverlay *overlay)
 
 加锁调用`func_display_overlay_l`(精简了代码，直接看正常流程代码)：
 
-```c
+```php
 static int func_display_overlay_l(SDL_Vout *vout, SDL_VoutOverlay *overlay)
 {
     switch(overlay->format) {
@@ -1707,15 +1704,11 @@ static int func_display_overlay_l(SDL_Vout *vout, SDL_VoutOverlay *overlay)
 
 这里主要是根据传入overlay的format选择具体的显示方法。这里有3种显示方法：
 
-- 如果是SDL_FCC__AMC，则是MediaCodec的特定format，用`SDL_VoutOverlayAMediaCodec_releaseFrame_l`显示
-- 如果是其他EGL支持的格式，则用`IJK_EGL_display`显示
-- 最后，如果都无法显示，就Fallback到直接用ndk nativewindow的api显示
+- 如果是SDL_FCC__AMC，则是MediaCodec的特定format，用`SDL_VoutOverlayAMediaCodec_releaseFrame_l`显示；
+- 如果是其他EGL支持的格式，则用`IJK_EGL_display`显示；
+- 最后，如果都无法显示，就Fallback到直接用ndk nativewindow的api显示；
 
 其中第一种是针对MediaCodec的硬解显示方式，后两种都是软解的显示方式。
-
-接下来分别从硬解和软解分类分析显示流程。
-
-
 
 **硬解显示**
 
@@ -1723,7 +1716,7 @@ MediaCodec是Android硬解的统一API，方便了不同芯片厂商接入。关
 
 MediaCodec解码时设置一个Surface以减少显示时的数据拷贝，可以提高效率。此时解码后拿到的是一个index，并非解码后的图像数据，ijk中将其封装为`SDL_AMediaCodecBufferProxy`，定义在jksdl_vout_android_nativewindow.c中：
 
-```c
+```php
 struct SDL_AMediaCodecBufferProxy
 {
     int buffer_id;
@@ -1735,14 +1728,15 @@ struct SDL_AMediaCodecBufferProxy
 
 SDL_AMediaCodecBufferProxy的实例在android overlay的SDL_VoutOverlay_Opaque中定义：
 
-```c
+```php
 typedef struct SDL_VoutOverlay_Opaque {
     SDL_mutex *mutex;
 
     SDL_Vout                   *vout;
     SDL_AMediaCodec            *acodec;
-
-    SDL_AMediaCodecBufferProxy *buffer_proxy;//这个是dequeueOutputBuffer的封装
+		
+  	//这个是dequeueOutputBuffer的封装
+    SDL_AMediaCodecBufferProxy *buffer_proxy;
 
     Uint16 pitches[AV_NUM_DATA_POINTERS];
     Uint8 *pixels[AV_NUM_DATA_POINTERS];
@@ -1753,7 +1747,7 @@ MediaCodec要显示一帧，是通过调用`releaseOutputBuffer`通知MediaCodec
 
 回到刚才的思路，看下`SDL_VoutOverlayAMediaCodec_releaseFrame_l`函数：
 
-```c
+```php
 int  SDL_VoutOverlayAMediaCodec_releaseFrame_l(SDL_VoutOverlay *overlay, SDL_AMediaCodec *acodec, bool render)
 {
     if (!check_object(overlay, __func__))
@@ -1766,7 +1760,7 @@ int  SDL_VoutOverlayAMediaCodec_releaseFrame_l(SDL_VoutOverlay *overlay, SDL_AMe
 
 `SDL_VoutAndroid_releaseBufferProxyP_l`调用了`SDL_VoutAndroid_releaseBufferProxy_l`：
 
-```c
+```php
 //这里省略了打印调试信息的代码
 static int SDL_VoutAndroid_releaseBufferProxy_l(SDL_Vout *vout, SDL_AMediaCodecBufferProxy *proxy, bool render)
 {
@@ -1807,28 +1801,6 @@ static int SDL_VoutAndroid_releaseBufferProxy_l(SDL_Vout *vout, SDL_AMediaCodecB
 1. 归还proxy到SDL_AMediaCodecBufferProxy对象池。因为解码的调用很频繁，如果重复分配释放proxy对象，内存压力会比较大，所以这里引入了一个对象池进行优化。
 2. 做一些合法性检查。比如检查serial变化、检查index值、检查占位符等
 3. 调用SDL_AMediaCodec_releaseOutputBuffer（也就是MediaCodec.releaseOutputBuffer）显示
-
-
-
-**软解显示**
-
-这块没怎么接触，有空分析后补充。
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
