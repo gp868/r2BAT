@@ -368,7 +368,7 @@ static int audio_thread(void *arg)
 
 ### 音频输出
 
-ijkplayer中Android平台使用OpenSL ES或 输出音频，iOS平台使用AudioQueue输出音频。
+ijkplayer中Android平台使用OpenSL ES或AudioTrack输出音频，iOS平台使用AudioQueue输出音频。
 
 audio output节点，在ffp_prepare_async_l方法中被创建：
 
