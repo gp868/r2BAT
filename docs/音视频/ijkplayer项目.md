@@ -1798,13 +1798,154 @@ static int SDL_VoutAndroid_releaseBufferProxy_l(SDL_Vout *vout, SDL_AMediaCodecB
 
 上面代码，主要做了3件事情：
 
-1. 归还proxy到SDL_AMediaCodecBufferProxy对象池。因为解码的调用很频繁，如果重复分配释放proxy对象，内存压力会比较大，所以这里引入了一个对象池进行优化。
-2. 做一些合法性检查。比如检查serial变化、检查index值、检查占位符等
-3. 调用SDL_AMediaCodec_releaseOutputBuffer（也就是MediaCodec.releaseOutputBuffer）显示
-
-
+1. 归还proxy到SDL_AMediaCodecBufferProxy对象池。因为解码的调用很频繁，如果重复分配释放proxy对象，内存压力会比较大，所以这里引入了一个对象池进行优化；
+2. 做一些合法性检查。比如检查serial变化、检查index值、检查占位符等；
+3. 调用`SDL_AMediaCodec_releaseOutputBuffer`（也就是MediaCodec.releaseOutputBuffer）显示；
 
 # 音频输出
+
+ijkplayer在Android上的的音频输出支持opensles和AudioTrack。
+
+## 概念
+
+音频输出被抽象为SDL_Aout:
+
+```php
+struct SDL_Aout {
+//……
+    SDL_Class       *opaque_class;
+    SDL_Aout_Opaque *opaque;
+    void (*free_l)(SDL_Aout *vout);
+    int (*open_audio)(SDL_Aout *aout, const SDL_AudioSpec *desired, SDL_AudioSpec *obtained);
+    void (*pause_audio)(SDL_Aout *aout, int pause_on);
+    void (*flush_audio)(SDL_Aout *aout);
+    void (*set_volume)(SDL_Aout *aout, float left, float right);
+    void (*close_audio)(SDL_Aout *aout);
+//……
+};
+// SDL_Aout由pipeline创建：
+struct IJKFF_Pipeline {
+    //……
+    SDL_Aout       *(*func_open_audio_output)   (IJKFF_Pipeline *pipeline, FFPlayer *ffp);
+    //……
+}
+```
+
+android上ffpipeline_android.c根据选项opensles创建具体的SDL_Aout：
+
+```php
+static SDL_Aout *func_open_audio_output(IJKFF_Pipeline *pipeline, FFPlayer *ffp)
+{
+    SDL_Aout *aout = NULL;
+    if (ffp->opensles) {
+        aout = SDL_AoutAndroid_CreateForOpenSLES();
+    } else {
+        aout = SDL_AoutAndroid_CreateForAudioTrack();
+    }
+    if (aout)
+        SDL_AoutSetStereoVolume(aout, pipeline->opaque->left_volume, pipeline->opaque->right_volume);
+    return aout;
+}
+```
+
+和SDL_Aout相关的目录结构如下：
+
+```php
++ijkmedia/ijkplayer
+    -ff_ffpipeline.h/c              //pipeline实现
+    +android/pipeline
+        -ffpipeline_android.h/c     //android pipeline实现
+
++ijksdl
+    -ijksdl_aout.h/c                //SDL_Aout定义、封装
+    +android
+        -ijksdl_aout_android_audiotrack.h/c     //SDL_Aout的AudioTrack实现
+        -ijksdl_aout_android_opensles.h/c       //SDL_Aout的opensles实现
+```
+
+对于SDL_Aout的使用流程基本和ffplay一样，不再展开分析。
+
+## AudioTrack实现分析
+
+AudioTrack输出实现的SDL_Aout在文件ijksdl_aout_android_audiotrack.h/c中。AudioTrack aout的主要实现是一个循环线程`aout_thread_n`，该线程在`aout_open_audio`中创建。其他操作都是通过变量的改变来通知循环线程生效的，比如flush：
+
+```php
+static void aout_flush_audio(SDL_Aout *aout)
+{
+    SDL_Aout_Opaque *opaque = aout->opaque;
+    SDL_LockMutex(opaque->wakeup_mutex);
+    SDLTRACE("aout_flush_audio()");
+    opaque->need_flush = 1;
+    SDL_CondSignal(opaque->wakeup_cond);
+    SDL_UnlockMutex(opaque->wakeup_mutex);
+}
+```
+
+先是置了一个`need_flush`标志，然后通过条件变量通知线程处理。
+
+接下来就看下`aout_thread_n`的实现：
+
+```php
+static int aout_thread_n(JNIEnv *env, SDL_Aout *aout)
+{
+    SDL_AudioCallback audio_cblk = opaque->spec.callback;//这就是ff_ffplay的sdl_audio_callback
+    int copy_size = 256;//每次要求ff_ffplay给256个字节的音频数据
+
+    SDL_SetThreadPriority(SDL_THREAD_PRIORITY_HIGH);//音频输出线程设置为高优先级，保证音频流畅输出
+
+    if (!opaque->abort_request && !opaque->pause_on)
+        SDL_Android_AudioTrack_play(env, atrack);//开始播放
+
+    while (!opaque->abort_request) {
+        SDL_LockMutex(opaque->wakeup_mutex);
+        //如果有暂停请求，处理暂停
+        if (!opaque->abort_request && opaque->pause_on) {
+            SDL_Android_AudioTrack_pause(env, atrack);//AudioTrack.pause
+            while (!opaque->abort_request && opaque->pause_on) {//循环超时等待信号
+                SDL_CondWaitTimeout(opaque->wakeup_cond, opaque->wakeup_mutex, 1000);
+            }
+            //恢复播放
+            if (!opaque->abort_request && !opaque->pause_on) {
+                if (opaque->need_flush) {//如果有flush请求，处理flush
+                    opaque->need_flush = 0;
+                    SDL_Android_AudioTrack_flush(env, atrack);//AudioTrack.flush
+                }
+                SDL_Android_AudioTrack_play(env, atrack);//AudioTrack.play
+            }
+        }
+        //如果有设置音量请求，设置音量
+        if (opaque->need_set_volume) {
+            opaque->need_set_volume = 0;
+            SDL_Android_AudioTrack_set_volume(env, atrack, opaque->left_volume, opaque->right_volume);//AudioTrack.setVolume
+        }
+        //如果有变速请求，处理变速
+        if (opaque->speed_changed) {
+            opaque->speed_changed = 0;
+            SDL_Android_AudioTrack_setSpeed(env, atrack, opaque->speed);//AudioTrack.setPlaybackRate
+        }
+        SDL_UnlockMutex(opaque->wakeup_mutex);
+
+        //找ff_ffplay要解码后音频数据，一次256字节
+        audio_cblk(userdata, buffer, copy_size);
+
+        //AudioTrack.write写出
+        int written = SDL_Android_AudioTrack_write(env, atrack, buffer, copy_size);
+        if (written != copy_size) {
+            ALOGW("AudioTrack: not all data copied %d/%d", (int)written, (int)copy_size);
+        }
+    }
+
+    SDL_Android_AudioTrack_free(env, atrack);//AudioTrack.release释放
+}
+```
+
+源码中有不只一次处理flush请求，并调用flush。然而根据官方文档说明flush函数会“No-op if not stopped or paused”，即不在暂停或停止状态调用flush是无效的，所以为了理解方便，上面只保留了“有效”的一处flush。
+
+`aout_thread_n`的代码逻辑比较清晰整体分3个部分：
+
+- 在加锁区，判断是否有未处理的请求，如果是，则处理该请求。这些请求是`aout_flush_audio`等SDL_Aout的函数发起的；
+- 调用audio_cblk（即sdl_audio_callback）要解码后的音频数据；
+- 通过AudioTrack.write写出；
 
 
 
@@ -1839,7 +1980,7 @@ static int SDL_VoutAndroid_releaseBufferProxy_l(SDL_Vout *vout, SDL_AMediaCodecB
 - [初识MediaCodec - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/45224834)
 - [ijkplayer video显示分析 - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/45237178)
 - [ijkplayer audio输出分析 - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/45518054)
-- 
+- [音视频技术 - 知乎 (zhihu.com)](https://www.zhihu.com/column/avtec)
 
 
 
