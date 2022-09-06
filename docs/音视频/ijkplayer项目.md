@@ -899,7 +899,7 @@ static int queue_picture(FFPlayer *ffp, AVFrame *src_frame, double pts, double d
 
 seek时需要调用解码器的flush：
 
-```c
+```php
 static int read_thread(void *arg)
 {
     //……
@@ -929,7 +929,7 @@ static int read_thread(void *arg)
 
 正常流程只在整个播放器销毁时有调用到：
 
-```c
+```php
 void ffp_destroy(FFPlayer *ffp)
 {
     //……
@@ -1028,7 +1028,7 @@ IJKFF_Pipenode *ffpipenode_create_video_decoder_from_android_mediacodec(FFPlayer
 
 接下来看下`reconfigure_codec_l`：
 
-```c
+```php
 static int reconfigure_codec_l(JNIEnv *env, IJKFF_Pipenode *node, jobject new_surface)
 {
     //……
@@ -1054,7 +1054,7 @@ reconfigure的主要流程与java api的使用差不多。典型的`new -> setSu
 
 在ffpipenode_android_mediacodec_vdec中有两个fun_run_sync的实现，可以通过mediacodec_sync选项进行切换：
 
-```c
+```php
 //ffpipenode_create_video_decoder_from_android_mediacodec
     if (ffp->mediacodec_sync) {
         node->func_run_sync = func_run_sync_loop;
@@ -1110,7 +1110,7 @@ static int func_run_sync(IJKFF_Pipenode *node)
 
 在分析`drain_output_buffer`前先看下`enqueue_thread_func`：
 
-```p p
+```php
 static int enqueue_thread_func(void *arg)
 {
     while (!q->abort_request && !opaque->abort) {
@@ -1320,7 +1320,7 @@ IJKFF_Pipenode *ffpipenode_create_video_decoder_from_ffplay(FFPlayer *ffp)
 
 软解的关键实现在`func_run_sync`:
 
-```c
+```php
 static int func_run_sync(IJKFF_Pipenode *node)
 {
     IJKFF_Pipenode_Opaque *opaque = node->opaque;
@@ -1339,7 +1339,7 @@ int ffp_video_thread(FFPlayer *ffp)
 
 软解与ffplay有所不同的地方在于`queue_picture`(将解码帧放入FrameQueue中)：
 
-```c
+```php
 static int queue_picture(FFPlayer *ffp, AVFrame *src_frame, double pts, double duration, int64_t pos, int serial)
 {
     //……
@@ -1403,7 +1403,7 @@ static int queue_picture(FFPlayer *ffp, AVFrame *src_frame, double pts, double d
 
 正常情况下`vp->bmp`创建一次后可重复使用，不需要重新创建。只有格式变化后，才需要调用`alloc_picture`重新创建。
 
-```c
+```php
 static void alloc_picture(FFPlayer *ffp, int frame_format)
 {
     //……
@@ -1425,7 +1425,7 @@ static void alloc_picture(FFPlayer *ffp, int frame_format)
 
 `alloc_picture`主要是通过调用SDL_Vout的接口，根据frame_format来创建一个Overlay。在[ijkplayer video显示分析](https://zhuanlan.zhihu.com/p/45237178)中分析过对于android默认通过`SDL_VoutAndroid_CreateForAndroidSurface`创建vout。该vout实现对应的overlay创建函数是：
 
-```c
+```php
 //SDL_LockMutex(vout->mutex);
 static SDL_VoutOverlay *func_create_overlay_l(int width, int height, int frame_format, SDL_Vout *vout)
 {
@@ -1531,7 +1531,7 @@ ffplay基于sdl显示图像，ijkplayer在显示上摒弃了sdl，而是另辟�
 
 还是从显示函数开始看起(ff_ffplay.c)：
 
-```c
+```php
 stream_open -> SDL_CreateThreadEx video_refresh_thread
     ->video_refresh
         ->video_display2
@@ -1541,7 +1541,7 @@ stream_open -> SDL_CreateThreadEx video_refresh_thread
 
 整个调用链和ffplay保持一致，只是显示线程从主线程改变了到了一个独立线程中。最后在显示一帧图像的时候调用的是`SDL_VoutDisplayYUVOverlay`
 
-```c
+```php
 int SDL_VoutDisplayYUVOverlay(SDL_Vout *vout, SDL_VoutOverlay *overlay)
 {
     if (vout && overlay && vout->display_overlay)
@@ -1554,8 +1554,6 @@ int SDL_VoutDisplayYUVOverlay(SDL_Vout *vout, SDL_VoutOverlay *overlay)
 在`SDL_VoutDisplayYUVOverlay`的函数里，我们看到了两个新的概念：`SDL_Vout`，`SDL_VoutOverlay`
 
 这两个是ijk中才有的概念，是为了封装“显示上下文”和“显示层”准备的。
-
-
 
 **SDL_Vout**
 
@@ -1583,8 +1581,6 @@ struct SDL_Vout {
 
 - dummy: 这是一个空实现。定义在ijk_sdl_vout_dummy.c。
 - android surface vout: 这是基于Android的surface实现的。定义在ijk_sdl_android_surface.c，ijk_vout_android_nativewindow.c
-
-
 
 **SDL_VoutOverlay**
 
