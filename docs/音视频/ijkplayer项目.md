@@ -1653,7 +1653,7 @@ new IjkMediaPlayer()
                     -> SDL_VoutAndroid_CreateForAndroidSurface()
 ```
 
-SDL_Vout创建后就可以用来显示SDL_VoutOverlay了，overlay的创建和填充是在解码线程中完成。
+**SDL_Vout创建后就可以用来显示SDL_VoutOverlay了，overlay的创建和填充是在解码线程中完成**。
 
 前面分析了overlay的显示是在video_display2中调用`SDL_VoutDisplayYUVOverlay`显示的。`SDL_VoutDisplayYUVOverlay`只是封装了具体SDL_Vout实现类的`display_overlay`方法。对于Android，对应的是ijksdl_vout_android_nativewindow.c中的`func_display_overlay`：
 
@@ -1712,9 +1712,7 @@ static int func_display_overlay_l(SDL_Vout *vout, SDL_VoutOverlay *overlay)
 
 **硬解显示**
 
-MediaCodec是Android硬解的统一API，方便了不同芯片厂商接入。关于MediaCodec的使用，可以参考这篇：https://zhuanlan.zhihu.com/p/45224834。
-
-MediaCodec解码时设置一个Surface以减少显示时的数据拷贝，可以提高效率。此时解码后拿到的是一个index，并非解码后的图像数据，ijk中将其封装为`SDL_AMediaCodecBufferProxy`，定义在jksdl_vout_android_nativewindow.c中：
+MediaCodec是Android硬解的统一API，方便了不同芯片厂商接入。MediaCodec解码时设置一个Surface以减少显示时的数据拷贝，可以提高效率。此时解码后拿到的是一个index，并非解码后的图像数据，ijk中将其封装为`SDL_AMediaCodecBufferProxy`，定义在jksdl_vout_android_nativewindow.c中：
 
 ```php
 struct SDL_AMediaCodecBufferProxy
@@ -1947,6 +1945,25 @@ static int aout_thread_n(JNIEnv *env, SDL_Aout *aout)
 - 调用audio_cblk（即sdl_audio_callback）要解码后的音频数据；
 - 通过AudioTrack.write写出；
 
+# MediaCodec
+
+<img src="https://s1.ax1x.com/2022/09/07/vHcOqs.png" alt="vHcOqs.png" style="zoom:120%;" />
+
+- dequeueinputBuffer（从input缓冲队列申请empty buffer，左边的上虚线）；
+- inputbuffer（拷贝mp4文件的一帧到empty buffer）；
+- queueInputBuffe(将inputbuffer放回codec)；
+- dequeueOutputBuffer(从output缓冲区队列申请编解码后的buffer)；
+- 编码后的数据渲染；
+- releaseOutputBuffer(放回到output缓冲区队列）；
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1981,6 +1998,7 @@ static int aout_thread_n(JNIEnv *env, SDL_Aout *aout)
 - [ijkplayer video显示分析 - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/45237178)
 - [ijkplayer audio输出分析 - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/45518054)
 - [音视频技术 - 知乎 (zhihu.com)](https://www.zhihu.com/column/avtec)
+- [MediaCodec编解码流程 - 简书 (jianshu.com)](https://www.jianshu.com/p/d14ebe0bf97f)
 
 
 
