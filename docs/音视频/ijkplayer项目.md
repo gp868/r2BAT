@@ -1956,6 +1956,23 @@ static int aout_thread_n(JNIEnv *env, SDL_Aout *aout)
 - 编码后的数据渲染；
 - releaseOutputBuffer(放回到output缓冲区队列）；
 
+# packetQueue和frameQueue
+
+packetQueue采用两条链表，一个是保存数据的链表，一个是复用节点链表，保存没有数据的那些节点。数据链表从`first_pkt`到`last_pkt`，插入数据接到`last_pkt`的后面，取数据从`first_pkt`拿。复用链表的开头是recycle_pkt，取完数据后的空节点，放到空链表recycle_pkt的头部，然后这个空节点成为新的recycle_pkt。存数据时，也从recycle_pkt复用一个节点。
+
+链表的节点像是包装盒，装载数据的时候放到数据链表，数据取出后回归到复用链表。
+
+frameQueue：数据使用一个简单的数组保存，可以把这个数据看成是环形的，然后也是其中一段有数据，另一段没有数据。`rindex`表示数据开头的index，也是读取数据的index，即read index；`windex`表示空数据开头的index，是写入数据的index，即write index。也是不断循环重用，然后size表示当前数据大小，max_size表示最大的槽位数，写入的时候如果size满了，就会阻塞等待；读取的时候size为空，也会阻塞等待。
+
+读取的时候不是读的`rindex`位置的数据，而是`rindex+rindex_shown`。rindex_shown 表示 rindex 指向的节点是否已经显示，如果已经显示则为1，否则为0。
+
+rindex 表示上一次播放的帧 lastvp，本次调用 video_refresh() 则 lastvp 会被删除，rindex 会加 1，即当调用 frame_queue_next 删除的是 lastvp，而不是当前的 vp，当前的 vp 转为 lastvp；rindex + rindex_shown 表示本次待播放的帧 vp，本次调用 video_refresh() 中，vp 会被读出播放；rindex + rindex_shown + 1 表示下一帧 nextvp。
+
+注意，在启用 keep_last 机制后，rindex_shown 值总是为 1，rindex_shown 确保了最后播放的一帧总保留在队列中。
+
+# ijkplayerItem
+
+AVPlayerItem：管理资源对象，提供播放数据源。
 
 
 
@@ -1967,6 +1984,40 @@ static int aout_thread_n(JNIEnv *env, SDL_Aout *aout)
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## 参考
+
+- [视频播放之AVPlayer、AVPlayerItem、AVPlayerLayer - 时光清浅、 - 博客园 (cnblogs.com)](https://www.cnblogs.com/fengfeng159/articles/11005065.html)
+- [播放器网络带宽预测方法_童话阿噗的博客-CSDN博客_带宽预测](https://blog.csdn.net/wangtonghua97/article/details/123151451)
+- [ijkplayer-hook协议实现分析_一朵桃花压海棠的博客-CSDN博客](https://blog.csdn.net/u013470102/article/details/89844094)
+- 
 
 
 
