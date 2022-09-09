@@ -2010,8 +2010,6 @@ AVPlayerItem：管理资源对象，提供播放数据源。
 
 
 
-
-
 ## 参考
 
 - [视频播放之AVPlayer、AVPlayerItem、AVPlayerLayer - 时光清浅、 - 博客园 (cnblogs.com)](https://www.cnblogs.com/fengfeng159/articles/11005065.html)
