@@ -1974,6 +1974,29 @@ rindex 表示上一次播放的帧 lastvp，本次调用 video_refresh() 则 las
 
 AVPlayerItem：管理资源对象，提供播放数据源。
 
+item_read_thread：
+
+```php
+static int item_read_thread(void * context)
+{
+		......
+		avf_inner = avformat_alloc_context();
+		// 初始化
+  	ret = avformat_open_input(&avf_inner, item->url, NULL, &format_opts);
+  	avf = avformat_alloc_context();
+    for (i = 0; i < avf_inner->nb_streams; i++) {
+        AVStream *st ;
+        st = avformat_new_stream(avf, NULL);
+        ret = copy_stream_props(st, avf_inner->streams[i]);
+        if (st->codecpar && st->codecpar->codec_type == AVMEDIA_TYPE_AUDIO)
+            has_audio = 1;
+    }
+		ret = av_read_frame(avf_inner, pkt);
+		item_packet_queue_put(&item->queue, pkt);
+```
+
+
+
 
 
 
