@@ -2307,30 +2307,30 @@ STL二级空间配置器虽然解决了外部碎片的问题，提高了效率�
 
   动画演示如图：
 
-  <img src="https://gcore.jsdelivr.net/gh/luogou/cloudimg/data/20210828142217.gif" alt="在这里插入图片描述" style="zoom: 50%;float:left" />
+<img src="https://gcore.jsdelivr.net/gh/luogou/cloudimg/data/20210828142217.gif" alt="在这里插入图片描述" style="zoom: 50%;float:left" />
 
   代码如下：
 
-  ```c++
-  void Straight_Insertion_Sort(int a[],int length){
-  	for (int i = 1;i < length;i++) 
-  	{
-  		if (a[i]<a[i-1]) {
-  			int temp = a[i];
-  			for (int j = i - 1;j >= 0;j--) {
-  				a[j + 1] = a[j];
-  				if (a[j] < temp) {
-  					a[j + 1] = temp;
-  					break;
-  				}
-  				if (j == 0 && a[j] > temp) {
-  					a[j] = temp;
-  				}
-  			}
-  		}
-  	}
-  }
-  ```
+```c++
+void Straight_Insertion_Sort(int a[],int length){
+	for (int i = 1;i < length;i++) 
+	{
+		if (a[i]<a[i-1]) {
+			int temp = a[i];
+			for (int j = i - 1;j >= 0;j--) {
+				a[j + 1] = a[j];
+				if (a[j] < temp) {
+					a[j + 1] = temp;
+					break;
+				}
+				if (j == 0 && a[j] > temp) {
+					a[j] = temp;
+				}
+			}
+		}
+	}
+}
+```
 
 - 折半插入排序
 
@@ -2690,7 +2690,7 @@ void Count_Sort(int a[],int length) {
 
 ## 基数排序O(n x k)
 
-**思路：**基数也就表明桶的个数是定死的，就是10个。基数排序的思想是，从个位依次开始排序，首先按照个位的大小排序，将改变的序列按照十位开始排序，然后一次往后……
+**思路：**基数也就表明桶的个数是定死的，就是10个。基数排序的思想是，从个位依次开始排序，首先按照个位的大小排序，将改变的序列按照十位开始排序，然后依次往后……
 
 **图解：**
 
@@ -2751,11 +2751,7 @@ void Radix_Sort(int b[],int length) {
 
 ## 桶排序O(n+k)
 
-**思路：**基数排序和计数排序都是桶思想的应用。桶排序是最基本的
-
-			首先要得到整个待排序数组的最大值和最小值，然后设置桶的个数k，这样可以得到每个桶可以放的数的区间。
-	
-			然后遍历待排序的数组，将相关区间内的数放到对应的桶中，这样桶内在排序，就使得整个序列相对有序
+**思路：**基数排序和计数排序都是桶思想的应用。首先要得到整个待排序数组的最大值和最小值，然后设置桶的个数k，这样可以得到每个桶可以放的数的区间。然后遍历待排序的数组，将相关区间内的数放到对应的桶中，这样桶内在排序，就使得整个序列相对有序。
 
 **图解：**
 
