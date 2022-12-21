@@ -53,27 +53,45 @@ fork之后，内核把父进程中所有的内存页的权限设置为只读，�
      - step：阻止其他线程在当前线程单步调试的时候抢占当前线程。只有当next、continue、util以及finish的时候，其他线程才会获得重新运行的
   6. show scheduler-locking： 查看当前锁定线程的模式
   7. i threads 实现线程间切换
+
 - GDB调试多进程
+
   1. 设置方法
-       set follow-fork-mode [parent][child] 
-       set detach-on-fork [on|off] 
+	
+     ```
+     set follow-fork-mode [parent][child] 
+	   set detach-on-fork [on|off] 
+     ```
   2. 查看上述两个属性的值
-       show follow-fork-mode //查看系统默认的模式
-       show detach-on-fork
-     /* 
-     	parent                   on               只调试主进程（GDB默认）
-     	child                    on               只调试子进程
-     	parent                   off              同时调试两个进程，gdb跟主进程，子进程block在fork位置
-     	child                    off              同时调试两个进程，gdb跟子进程，主进程block在fork位置
-     */
+  
+     ```
+        show follow-fork-mode //查看系统默认的模式
+        show detach-on-fork
+        /* 
+        	parent                   on               只调试主进程（GDB默认）
+        	child                    on               只调试子进程
+        	parent                   off              同时调试两个进程，gdb跟主进程，子进程block在fork位置
+        	child                    off              同时调试两个进程，gdb跟子进程，主进程block在fork位置
+        */
+     ```
+
   3. 查询正在调试的进程
+
+       ```
        info inferiors  //查询正在调试的进程
        inferior 进程编号 // 切换调试的进程
+       ```
+  
   4. add-inferior [-copies n] [-exec executable] //添加新的调试进程
+  
   5. detach inferior [进程编号] //释放掉 
+  
   6. kill inferior [进程编号] 
+  
   7. remove-inferior [进程编号] //删除该进程
+  
   8. set schedule-multiple 
+  
   9. set print interior-events on/off
 
 # 如何调试死锁
@@ -104,11 +122,13 @@ fork之后，内核把父进程中所有的内存页的权限设置为只读，�
 # 其他
 
 - 怎么使一个命令在后台运行?
+  
   使用 & 在命令结尾来让程序自动运行。(命令后可以不追加空格)
-
+  
 - 用什么命令对一个文件的内容进行统计？(行号、单词数、字节数)
+  
   wc ：- c 统计字节数 - l 统计行数 - w 统计字数。(word count)
-
+  
 - scp：本地和远程互传文件
 
 - ps：查看当前进程
@@ -151,8 +171,4 @@ fork之后，内核把父进程中所有的内存页的权限设置为只读，�
 - gdb查看堆栈中所有遍历
 
   - `thread apply all bt` 查看所用线程堆栈信息
-
-- 如何读取一个10G文件，cat一个10g文件会发生什么
-
-  强行 cat 一个大文件会造成内存溢出，通常将cat命令和split命令混合使用。比如内存是250M， 那么将10G的文件切分成若干个250M的文件，然后文本查找。
 
