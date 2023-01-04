@@ -1730,7 +1730,7 @@ Vector在堆中分配了⼀段连续的内存空间来存放元素，随着元�
 
 vector 的数据结构中其实就是三个迭代器构成的，⼀个指向⽬前使⽤空间头的 iterator，⼀个指向⽬前使⽤空间尾的iterator，⼀个指向⽬前可⽤空间尾的 iterator。当有新的元素插⼊时，如果⽬前容量够⽤则直接插⼊，如果容量不够，则容量扩充⾄两倍，如果两倍容量不⾜， 就扩张⾄⾜够⼤的容量。
 
-<img src="https://gcore.jsdelivr.net/gh/CARLOSGP2021/myFigures/img/202206072029286.png" alt="image-20220607202913219" style="zoom:70%;" />
+<img src="https://gcore.jsdelivr.net/gh/gp868/myFigures/img/202206072029286.png" alt="image-20220607202913219" style="zoom:70%;" />
 
 扩充的过程并不是直接在原有空间后⾯追加容量，⽽是重新申请⼀块连续空间，将原有的数据拷⻉到新空间中，再释放原有空间，完成⼀次扩充。需要注意的是，每次扩充是重新开辟的空间，所以扩充后，原有的迭代器将会失效。
 
@@ -1885,7 +1885,7 @@ public:
 }
 ```
 
-<img src="https://gcore.jsdelivr.net/gh/CARLOSGP2021/myFigures/img/202206082031596.png" alt="image-20220608203058478" style="zoom:90%;" />
+<img src="https://gcore.jsdelivr.net/gh/gp868/myFigures/img/202206082031596.png" alt="image-20220608203058478" style="zoom:90%;" />
 
 deque内部有一个指针指向map，map是一小块连续空间，其中的每个元素称为一个节点node，每个node都是一个指针，指向另一段较大的连续空间，称为**缓冲区**，这里就是deque中实际存放数据的区域，默认大小为512bytes。
 
@@ -1904,7 +1904,7 @@ struct __deque_iterator{
 
 从deque的迭代器数据结构可以看出，为了保持与容器联结，迭代器主要包含上述4个元素。
 
-<img src="https://gcore.jsdelivr.net/gh/CARLOSGP2021/myFigures/img/202206082033790.png" alt="image-20220608203356715" style="zoom:80%;" />
+<img src="https://gcore.jsdelivr.net/gh/gp868/myFigures/img/202206082033790.png" alt="image-20220608203356715" style="zoom:80%;" />
 
 deque迭代器的“++”、“--”操作是远比vector迭代器繁琐，其主要工作在于缓冲区边界，如何从当前缓冲区跳到另一个缓冲区。当然deque内部在插入元素时，如果map中node数量全部使用完，且node指向的缓冲区也没有多余的空间，这时会配置新的map（2倍于当前+2的数量）来容纳更多的node，也就是可以指向更多的缓冲区。在deque删除元素时，也提供了元素的析构和空闲缓冲区空间的释放等机制。
 
@@ -2113,7 +2113,7 @@ insert 含义是：在 map 中，如果key存在，则插入失败；如果key�
 
 B+ 树就是对 B 树做了一个升级，MySQL 中索引的数据结构就是采用了 B+ 树。B+ 树与 B 树的差异主要有：
 
-![图片](https://gcore.jsdelivr.net/gh/CARLOSGP2021/myFigures/img/202206012015597.png)
+![图片](https://gcore.jsdelivr.net/gh/gp868/myFigures/img/202206012015597.png)
 
 - 叶子节点（最底部的节点）才会存放实际数据（索引+记录），非叶子节点只会存放索引；
 - 所有索引都会在叶子节点出现，叶子节点之间构成一个有序链表；
@@ -2198,7 +2198,7 @@ heap（堆）并不是STL的容器组件，是`priority_queue`的底层实现机
 
 由于完全二叉树的性质，新插入的元素一定是位于树的最底层作为叶子节点，并填补由左至右的第一个空格。事实上，在刚执行插入操作时，新元素位于底层`vector`的`end()`处，之后是上溯的过程。
 
-<img src="https://gcore.jsdelivr.net/gh/CARLOSGP2021/myFigures/img/202206111135337.png" alt="image-20220611113511261" style="zoom:83%;" />
+<img src="https://gcore.jsdelivr.net/gh/gp868/myFigures/img/202206111135337.png" alt="image-20220611113511261" style="zoom:83%;" />
 
 新元素50在插入堆中后，先放在vector的end()存着，之后执行上溯过程，调整其根结点的位置，以便满足大根堆的性质。
 
@@ -2206,7 +2206,7 @@ heap（堆）并不是STL的容器组件，是`priority_queue`的底层实现机
 
 堆的pop操作实际弹出的是根节点，将其和vector最后一个元素进行替换，然后再为这个被替换的元素找到一个合适的安放位置，使整颗二叉树满足完全二叉树的条件。这个被挤掉的元素首先会与根结点的两个子节点比较，并与较大的子节点更换位置，如此一直往下，直到这个被挤掉的元素大于左右两个子节点，或者下放到叶子节点为止，这个过程称为下溯。
 
-<img src="https://gcore.jsdelivr.net/gh/CARLOSGP2021/myFigures/img/202206111132314.png" alt="image-20220611113159174" style="zoom:85%;" />
+<img src="https://gcore.jsdelivr.net/gh/gp868/myFigures/img/202206111132314.png" alt="image-20220611113159174" style="zoom:85%;" />
 
 根节点68被pop之后，移到了vector的最底部，将24挤出，24被迫从根节点开始与其子节点进行比较，直到找到合适的位置安身，需要注意的是pop之后元素并没有被移走，如果要将其移走，可以使用pop_back()。
 
@@ -2265,11 +2265,11 @@ priority_queue的所有元素，进出都有一定的规则，只有queue顶端�
 2. 如果用户自定义了内存分配失败的处理函数就调用，没有的话就返回异常；
 3. 如果自定义了处理函数就进行处理，处理完再继续尝试分配内存。
 
-<img src="https://gcore.jsdelivr.net/gh/CARLOSGP2021/myFigures/img/202206121655246.png" alt="image-20220612165502162" style="zoom:80%;" />
+<img src="https://gcore.jsdelivr.net/gh/gp868/myFigures/img/202206121655246.png" alt="image-20220612165502162" style="zoom:80%;" />
 
 **二级空间配置器**
 
-<img src="https://gcore.jsdelivr.net/gh/CARLOSGP2021/myFigures/img/202206121703081.png" alt="image-20220612170324000" style="zoom:90%;" />
+<img src="https://gcore.jsdelivr.net/gh/gp868/myFigures/img/202206121703081.png" alt="image-20220612170324000" style="zoom:90%;" />
 
 会维护16条链表，分别是0-15号链表，最小为8字节，以8字节逐渐递增，最大为128字节。传入一个字节参数，表示需要多大的内存，会自动校对到第几号链表（如需要13bytes空间，我们会给它分配16bytes大小），在找到第n个链表后查看链表是否为空，如果不为空直接从对应的free_list中取出，将已经取出的指针向后移动一位。
 

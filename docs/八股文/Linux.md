@@ -133,13 +133,13 @@ fork之后，内核把父进程中所有的内存页的权限设置为只读，�
 
 - ps：查看当前进程
 
-  ![img](https://gcore.jsdelivr.net/gh/CARLOSGP2021/myFigures/img/818047-20200905084700484-530981088.png)
+  ![img](https://gcore.jsdelivr.net/gh/gp868/myFigures/img/818047-20200905084700484-530981088.png)
 
 - top：可实时显示进程CPU百分比和内存使用情况
 
   [Linux top命令详解 - 牛奔 - 博客园 (cnblogs.com)](https://www.cnblogs.com/niuben/p/12017242.html)
 
-  ![img](https://gcore.jsdelivr.net/gh/CARLOSGP2021/myFigures/img/1303876-20191210152709726-52408463.png)
+  ![img](https://gcore.jsdelivr.net/gh/gp868/myFigures/img/1303876-20191210152709726-52408463.png)
 
 - job：查看后台任务
 

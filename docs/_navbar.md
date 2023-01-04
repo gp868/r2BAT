@@ -1,3 +1,3 @@
 - 关注我
   - [Github](https://github.com/CARLOSGP2021)
-  - [公众号](https://test1.jsdelivr.net/gh/CARLOSGP2021/myFigures/img/202205282027513.gif)
+  - [公众号](https://test1.jsdelivr.net/gh/gp868/myFigures/img/202205282027513.gif)

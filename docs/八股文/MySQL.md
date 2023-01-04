@@ -1,4 +1,4 @@
-![img](https://test1.jsdelivr.net/gh/CARLOSGP2021/myFigures/img/202207191034709.png)
+![img](https://test1.jsdelivr.net/gh/gp868/myFigures/img/202207191034709.png)
 
 事务的ACID特性：
 

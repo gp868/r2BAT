@@ -65,9 +65,9 @@
 
 项目框架：
 
-<img src="https://gcore.jsdelivr.net/gh/CARLOSGP2021/myFigures/img/202204021828181.jpg" alt="005TJ2c7ly1ge0j1atq5hj30g60lm0w4" style="zoom:130%;" />
+<img src="https://gcore.jsdelivr.net/gh/gp868/myFigures/img/202204021828181.jpg" alt="005TJ2c7ly1ge0j1atq5hj30g60lm0w4" style="zoom:130%;" />
 
-<img src="https://gcore.jsdelivr.net/gh/CARLOSGP2021/myFigures/img/202204022020814.png" alt="image-20220402202057737" style="zoom:80%;" />
+<img src="https://gcore.jsdelivr.net/gh/gp868/myFigures/img/202204022020814.png" alt="image-20220402202057737" style="zoom:80%;" />
 
 ## Reactor和模拟Proactor
 
@@ -75,7 +75,7 @@
 
   要求主线程（I/O处理单元）只负责监听文件描述符上是否有事件发生，有的话就立即将该事件通知工作线程（逻辑单元），将 socket 可读可写事件放入请求队列，交给工作线程处理。除此之外，主线程不做任何其他实质性的工作。读写数据，接受新的连接，以及处理客户请求均在工作线程中完成。
 
-  <img src="https://gcore.jsdelivr.net/gh/CARLOSGP2021/myFigures/img/202203302101257.png" alt="image-20220330210124183" style="zoom: 65%;" />
+  <img src="https://gcore.jsdelivr.net/gh/gp868/myFigures/img/202203302101257.png" alt="image-20220330210124183" style="zoom: 65%;" />
 
 1. 主线程往 epoll 内核事件表中注册 socket 上的读就绪事件。
 2. 主线程调用 epoll_wait 等待 socket 上有数据可读。
@@ -89,7 +89,7 @@
 
   Proactor 模式将所有 I/O 操作都交给主线程和内核来处理（进行读、写），工作线程仅仅负责业务逻辑。使用异步 I/O 模型（以 aio_read 和 aio_write 为例）实现的 Proactor 模式的工作流程是：
 
-  <img src="https://gcore.jsdelivr.net/gh/CARLOSGP2021/myFigures/img/202203302104527.png" alt="image-20220330210448452" style="zoom:67%;" />
+  <img src="https://gcore.jsdelivr.net/gh/gp868/myFigures/img/202203302104527.png" alt="image-20220330210448452" style="zoom:67%;" />
 
 1. 主线程调用 aio_read 函数向内核注册 socket 上的读完成事件，并告诉内核用户读缓冲区的位置，以及读操作完成时如何通知应用程序（这里以信号为例）；
 2. 主线程继续处理其他逻辑；
@@ -101,7 +101,7 @@
 - **模拟 Proactor 模式**
   使用同步 I/O 方式模拟出 Proactor 模式。原理是：主线程执行数据读写操作，读写完成之后，主线程向工作线程通知这一”完成事件“。那么从工作线程的角度来看，它们就直接获得了数据读写的结果，接下来要做的只是对读写的结果进行逻辑处理。
 
-  <img src="https://gcore.jsdelivr.net/gh/CARLOSGP2021/myFigures/img/202204031036562.png" alt="image-20220403103636379" style="zoom:65%;" />
+  <img src="https://gcore.jsdelivr.net/gh/gp868/myFigures/img/202204031036562.png" alt="image-20220403103636379" style="zoom:65%;" />
 
 使用同步 I/O 模型（以 epoll_wait为例）模拟出的 Proactor 模式的工作流程如下：
 
@@ -226,7 +226,7 @@ select/poll 只有⽔平触发模式，epoll 默认的触发模式是⽔平触�
 
 - https的ssl连接过程
 
-  ![img](https://gcore.jsdelivr.net/gh/CARLOSGP2021/myFigures/img/202203302111906.jpeg)
+  ![img](https://gcore.jsdelivr.net/gh/gp868/myFigures/img/202203302111906.jpeg)
 
 - GET和POST的区别
 
