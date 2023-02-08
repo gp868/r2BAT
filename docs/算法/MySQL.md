@@ -2,11 +2,11 @@
 
 - SELECT... FROM ...
 
-- 去重：select distinct ... from ...
+- 去重：SELECT DISTINCT... FROM ...
 
-- 顺序：select ... from ... order by ... ; 
+- 顺序：SELECT ... FROM  ... ORDER BY ... ; 
 
-- 倒序：select ... from ... order by ... desc; (descending order)
+- 倒序：SELECT ... FROM ... ORDER BY ... DESC; (descending order)
 
 - 多变量排序
 
@@ -60,12 +60,28 @@
       prod_id in ('BR01', 'BR02', 'BR03');
   ```
 
-- 筛选前几名
+- 筛选记录
+
+  `LIMIT`关键字：
 
   ```mysql
-  // 查询score表里的grade列，使用grade列进行排序，并且提取出前5条记录
-  select * from score order by grade limit 5
+  SELECT ... FROM ... LIMIT [offset,] rows
   ```
+
+  `LIMIT`关键字⽤于强制 SELECT 语句返回指定的记录数。LIMIT 接受⼀个或两个数字参数，参数必须是⼀个整数常量。
+
+  - 如果给定两个参数，第⼀个参数指定起始记录⾏的**偏移量**，第⼆个参数指定末尾记录行；
+
+    ```mysql
+    SELECT * FROM table LIMIT 10,15; // 检索记录⾏11-15
+    ```
+
+  - 如果只给定⼀个参数，它表示返回记录行的数⽬；
+
+    ```mysql
+    SELECT * FROM score ORDER BY grade LIMIT 5
+    // 提取出前5条记录
+    ```
 
 - 模糊查找
 
@@ -126,7 +142,7 @@
   FROM
       Orders
   WHERE
-      order_date like '2020-01%' // shai
+      order_date like '2020-01%' // 筛选出一月份的数据
   ORDER BY
       order_date
   ```
@@ -150,7 +166,7 @@
       prod_id,
       prod_price,
       prod_price * 0.9 sale_price
-      round(prod_price * 0.9, 1) sale_price
+      round(prod_price * 0.9, 1) sale_price // 四舍五入保留一位小数
   FROM
       Products;
   ```
@@ -174,11 +190,29 @@
       Customers
   ```
 
+
+- 聚合函数
+
+  | 函数名   | COUNT | SUM  | AVG      | MAX    | MIN    |
+  | -------- | ----- | ---- | -------- | ------ | ------ |
+  | **作用** | 计数  | 求和 | 求平均值 | 最大值 | 最小值 |
   
+  - MAX(column)：返回某列的最大值
+  - MIN(column)：返回某列的最高值 
+  - COUNT(column)：返回某列的总行数 
+  - COUNT(*)：返回表的总行数
+  - SUM(column)：返回某列的相加总和
+  - AVG(column)：返回某列的平均值
 
+- 聚合函数只作用非null，因为null数据不参与运算。
 
+  ```mysql
+  select avg(comm), avg(ifnull(comm, 0)) from emp;
+  ```
 
+  两个计算结果是不一样的，ifnull函数的作用就是发现值为null后将其值变为0。聚合函数使用时注意空值的情况，要配合`ifnull`函数使用。
 
+  
 
 
 
