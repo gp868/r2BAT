@@ -212,11 +212,57 @@
 
   两个计算结果是不一样的，ifnull函数的作用就是发现值为null后将其值变为0。聚合函数使用时注意空值的情况，要配合`ifnull`函数使用。
 
+- 分组 GROUP BY
+
+  GROUP BY 语句根据一个或多个列对结果集进行分组。在分组的列上通常配合 COUNT, SUM, AVG等函数一起使用。
+
+  例如：求每个部门所有工资总和。通过deptno字段对表数据进行分组后，然后通过sum(sal)来计算每个分组的总和。
+
+  ```mysql
+  SELECT
+  	deptno, SUM(sal)
+  FROM 
+  	emp
+  GROUP BY
+  	deptno;
+  ```
+
+  例如：查询每个部门工资大于1500的的人数。
+
+  ```mysql
+  SELECT
+  	deptno, COUNT(*)
+  FROM 
+  	emp
+  WHERE
+  	sal > 1500
+  GROUP BY
+  	deptno;
+  ```
+
+- HAVING
+
+  HAVING用于**分组后**的再次筛选，只能用于分组。
+
+  例如：求工资总和大于9000的部门，并按照工资总和排序。
+
+  ```mysql
+  SELECT
+  	deptno, SUM(sal)
+  FROM 
+  	emp
+  GROUP BY
+  	deptno
+  HAVING
+  	SUM(sal) > 9000
+  ORDER BY
+  	SUM(sal);
+  ```
   
-
-
-
-
+  - **having和where区别：**
+  1. having是分组后，where是分组前；
+  2. where不用使用聚合函数，having可以使用聚合函数；
+  3. where在分组之前就会进行筛选，过滤掉的数据不会进入分组；
 
 
 
