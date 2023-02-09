@@ -193,6 +193,8 @@ const 修饰**类对象**，定义常量对象：常量对象只能调用**常�
 
 顺序性：能够保证 volatile 变量之间的顺序性，编译器不会进行乱序优化。
 
+volatile可理解为“编译器警告指示字”，告诉编译器必须每次去内存中取变量值。主要修饰可能被多个线程访问的变量，也可以修饰可能被未知因素更改的变量。
+
 **extern**
 
 在 C 语言中，修饰符 extern 用在变量或者函数的声明前，用来说明 “此变量/函数是在别处定义的，要在此处引用”。
@@ -989,6 +991,10 @@ int main(){
 2. char型占1个字节，bool型占1个字节，int占4个字节，short int占2个字节，long int占4个字节，float占4字节，double占8字节，string占4字节，一个空类占1个字节，单一继承的空类占1个字节，虚继承涉及到虚指针所以占4个字节，void * 万能指针在32位系统上是4字节，64位系统上是8字节；
 3. 数组的长度：若指定了数组长度，则不看元素个数，总字节数 = 数组长度 * sizeof（元素类型）；若没有指定长度，则按实际元素个数来确定。Ps：若是字符数组，则应考虑末尾的空字符。
 
+- 派生类有两个基类，每个基类都有虚函数，派生类对象内存中有几个虚表指针
+
+对于多继承的情况，假如派生类有n个直接基类，那么派生类对象中就有n个虚表指针。
+
 例子1：
 
 ```php
@@ -1169,9 +1175,15 @@ int main(){
 
 所以**类成员初始化方式**有两种：1. 赋值初始化，通过在函数体内进行赋值初始化；2. 列表初始化，在冒号后使用初始化列表进行初始化。
 
-这两种方式的主要**区别**在于：
+这两种方式的主要**区别**在于：初始化列表是初始化，而函数体内是赋值操作。
 
 对于在函数体中初始化，是在所有的数据成员被分配内存空间后才进行的。而列表初始化是给数据成员分配内存空间时就进行初始化，也就是说分配一个数据成员只要冒号后有此数据成员的赋值表达式(此表达式必须是括号赋值表达式)，那么分配了内存空间后在进入函数体之前给数据成员赋值，初始化这个数据成员，此时函数体还未执行。
+
+对于普通的数据类型两种操作只有资源消耗的区别。但引用和const常量都是不能被赋值的，它们在类内只能在构造函数的参数初始化列表中被初始化。
+
+对于对引用变量和const变量的初始化问题：在进入构造函数体内时，实际上变量都已经初始化完毕了，即引用变量和const变量都已经用不确定的值初始化好了，构造函数内能做的只有赋值，而const类型和引用类型是不可以赋值的。所以，需要在初始化列表中初始化。
+
+类的静态成员变量不能用参数初始化表初始化；对于类的const成员，只能使用初始化列表，而不能在构造函数内部进行赋值操作。
 
 那为什么用成员初始化列表会快一些呢？
 
@@ -1249,6 +1261,12 @@ public:
 
 ```
 
+- 什么时候需要自定义拷贝构造函数？
+
+当类中有指针类型成员变量的时候，一定要自定义拷贝构造和赋值运算符。
+
+原因：当有指针类成员变量时，还是用默认拷贝构造函数(拷贝构造函数执行的时候会调用赋值符)，默认赋值为浅拷贝，会导致两个对象指向同一块堆区空间，在最后析构的时候导致内存二次析构而出错！
+
 ## 虚函数
 
 - **虚函数的实现原理**
@@ -1281,6 +1299,12 @@ public:
 2. 虚函数表位于只读数据段（.rodata），即C++内存模型中的常量区；
 
 3. 虚函数代码则位于代码段（.text），即C++内存模型中的代码区。
+
+- 虚函数表什么时候生成，虚表指针什么时候赋值
+
+虚函数表创建时机是在编译期间。编译期间编译器就为每个类确定好了对应的虚函数表里的内容。
+
+vptr跟着对象走，所以对象什么时候创建出来，vptr就什么时候创建出来，也就是运行的时候。当程序在编译期间，编译器会为构造函数中增加为vptr赋值的代码(这是编译器的行为)，当程序在运行时，遇到创建对象的代码，执行对象的构造函数，那么这个构造函数里有为这个对象的vptr赋值的语句。
 
 - **编译器如何建立虚函数表**
 
@@ -2307,9 +2331,9 @@ STL二级空间配置器虽然解决了外部碎片的问题，提高了效率�
 
   动画演示如图：
 
-<img src="https://gcore.jsdelivr.net/gh/luogou/cloudimg/data/20210828142217.gif" alt="在这里插入图片描述" style="zoom: 50%;float:left" />
+![](https://gcore.jsdelivr.net/gh/luogou/cloudimg/data/20210828142217.gif)
 
-  代码如下：
+代码如下：
 
 ```c++
 void Straight_Insertion_Sort(int a[],int length){
@@ -2334,11 +2358,9 @@ void Straight_Insertion_Sort(int a[],int length){
 
 - 折半插入排序
 
-  主要分为查找和插入两个部分
+  主要分为查找和插入两个部分，图片演示：
 
-  图片演示：
-
-  <img src="https://gcore.jsdelivr.net/gh/luogou/cloudimg/data/20210828142548.png" alt="在这里插入图片描述" style="zoom:50%;float:left" />
+  ![](https://gcore.jsdelivr.net/gh/luogou/cloudimg/data/20210828142548.png)
 
   代码如下：
 
@@ -2366,15 +2388,13 @@ void Straight_Insertion_Sort(int a[],int length){
   	}//for(i)
   ```
 
-
-
 ## 冒泡排序O(n^2^)
 
 思路：两两比较元素，顺序不同就交换
 
 图解：
 
-<img src="https://gcore.jsdelivr.net/gh/luogou/cloudimg/data/20210829093855.gif" alt="在这里插入图片描述" style="zoom:80%;float:left" />
+![](https://gcore.jsdelivr.net/gh/luogou/cloudimg/data/20210829093855.gif)
 
 代码：
 
@@ -2398,11 +2418,11 @@ void Bubble_Sort(int a[],int length) {
 
 图解：
 
-<img src="https://gcore.jsdelivr.net/gh/luogou/cloudimg/data/20210829105353.png" alt="在这里插入图片描述" style="zoom: 33%;float:left" />
+![](https://gcore.jsdelivr.net/gh/luogou/cloudimg/data/20210829105353.png)
 
 代码：
 
-```
+```cpp
 void Select_Sort(int a[],int length) {
 	for (int i = 0;i < length - 1;i++) {
 		int min_index = i;
@@ -2420,19 +2440,17 @@ void Select_Sort(int a[],int length) {
 }
 ```
 
-
-
 ## 希尔排序—缩小增量排序O(nlogn)
 
 **思路：**
 
 希尔排序又叫缩小增量排序，使得待排序列从局部有序随着增量的缩小编程全局有序。当增量为1的时候就是插入排序，增量的选择最好是531这样间隔着的。
 
-其实这个跟选择排序一样的道理，都是不稳定的比如下图7变成9的话，就是不稳定的
+其实这个跟选择排序一样的道理，都是不稳定的比如下图7变成9的话，就是不稳定的。
 
 **图解：**
 
-<img src="https://gcore.jsdelivr.net/gh/luogou/cloudimg/data/20210829090937.png" alt="在这里插入图片描述" style="zoom:67%;float:left" />
+![](https://gcore.jsdelivr.net/gh/luogou/cloudimg/data/20210829090937.png)
 
 代码：
 
@@ -2465,34 +2483,27 @@ void shellsort3(int a[], int n)
 }
 ```
 
-
-
 ## 快速排序O(nlogn)
 
 思路：快排的核心叫做“基准值“，小于基准值的放在左边，大于基准值的放在右边。然后依次递归。基准值的选取随机的，一般选择数组的第一个或者数组的最后一个，然后又两个指针low和high
 
-图解：“基准值就是第一个元素”
+图解：基准值就是第一个元素
 
-<img src="https://gcore.jsdelivr.net/gh/luogou/cloudimg/data/20210829100212.png" alt="在这里插入图片描述" style="zoom:67%;float:left" />
+![](https://gcore.jsdelivr.net/gh/luogou/cloudimg/data/20210829100212.png)
 
-<img src="https://gcore.jsdelivr.net/gh/luogou/cloudimg/data/20210829100236.png" alt="在这里插入图片描述" style="zoom:67%;float:left" />
+![](https://gcore.jsdelivr.net/gh/luogou/cloudimg/data/20210829100236.png)
 
-<img src="https://gcore.jsdelivr.net/gh/luogou/cloudimg/data/20210829100243.png" alt="在这里插入图片描述" style="zoom:67%;float:left" />
+![](https://gcore.jsdelivr.net/gh/luogou/cloudimg/data/20210829100243.png)
 
-<img src="https://gcore.jsdelivr.net/gh/luogou/cloudimg/data/20210829100307.png" alt="在这里插入图片描述" style="zoom:67%;float:left" />
-
-
+![](https://gcore.jsdelivr.net/gh/luogou/cloudimg/data/20210829100307.png)
 
 1）设置两个变量I、J，排序开始的时候：I=0，J=N-1；
 
 2）以第一个数组元素作为关键数据，赋值给 key ，即  key =A[0]；
-　　
 
 3）从J开始向前搜索，即由后开始向前搜索（J=J-1即J--），找到第一个小于 key 的值A[j]，A[j]与A[i]交换；
-　　
 
 4）从I开始向后搜索，即由前开始向后搜索（I=I+1即I++），找到第一个大于 key 的A[i]，A[i]与A[j]交换；
-　　
 
 5）重复第3、4、5步，直到 I=J； (3,4步是在程序中没找到时候j=j-1，i=i+1，直至找到为止。找到并交换的时候i， j指针位置不变。另外当i=j这过程一定正好是i+或j-完成的最后另循环结束。）
 
@@ -2527,21 +2538,19 @@ void Quick_Sort(int a[],int low,int high) {
 }
 ```
 
-
-
 ## 堆排序O(nlogn)
 
 思路：堆是具有以下性质的完全二叉树：每个结点的值都大于或等于其左右孩子结点的值，称为大顶堆；或者每个结点的值都小于或等于其左右孩子结点的值，称为小顶堆。堆排序分为两步：首先将待排序序列构造成一个大顶堆，此时，整个序列的最大值就是堆顶的根节点。随后第二步将其与末尾元素进行交换，此时末尾就为最大值。然后将这个堆结构映射到数组中后，就会变成升序状态了。**（即升序—大根堆）**
 
-> 当数组元素映射成为堆时：
->
-> 1. 父结点索引：(*i*-1)/2
-> 2. +左孩子索引：2**i*+1
-> 3. 左孩子索引：2**i*+2
+当数组元素映射成为堆时：
+
+1. 父结点索引：(*i*-1)/2
+2. +左孩子索引：2**i*+1
+3. 左孩子索引：2**i*+2
 
 图解：
 
-<img src="https://gcore.jsdelivr.net/gh/luogou/cloudimg/data/20210829112449.gif" alt="在这里插入图片描述" style="zoom:50%;float:left" />
+![](https://gcore.jsdelivr.net/gh/luogou/cloudimg/data/20210829112449.gif)
 
 基本思想：
 
@@ -2595,7 +2604,7 @@ void Heap_Sort(int a[],int length) {
 
 图解：
 
-<img src="https://gcore.jsdelivr.net/gh/luogou/cloudimg/data/20210829134401.jpeg" alt="在这里插入图片描述" style="zoom:67%;float:left" />
+![](https://gcore.jsdelivr.net/gh/luogou/cloudimg/data/20210829134401.jpeg)
 
 代码：
 
@@ -2652,7 +2661,7 @@ void Merge_Sort(int a[], int low, int high) {
 
 **图解：**
 
-<img src="https://gcore.jsdelivr.net/gh/luogou/cloudimg/data/20210829135544.gif" alt="计数排序" style="zoom:67%;" />
+![](https://gcore.jsdelivr.net/gh/luogou/cloudimg/data/20210829135544.gif)
 
 代码：
 
@@ -2694,7 +2703,7 @@ void Count_Sort(int a[],int length) {
 
 **图解：**
 
-<img src="https://gcore.jsdelivr.net/gh/luogou/cloudimg/data/20210829140105.gif" alt="在这里插入图片描述" style="zoom: 50%; float: left;" />
+![](https://gcore.jsdelivr.net/gh/luogou/cloudimg/data/20210829140105.gif)
 
 代码：
 
@@ -2747,15 +2756,13 @@ void Radix_Sort(int b[],int length) {
 }
 ```
 
-
-
 ## 桶排序O(n+k)
 
 **思路：**基数排序和计数排序都是桶思想的应用。首先要得到整个待排序数组的最大值和最小值，然后设置桶的个数k，这样可以得到每个桶可以放的数的区间。然后遍历待排序的数组，将相关区间内的数放到对应的桶中，这样桶内在排序，就使得整个序列相对有序。
 
 **图解：**
 
-<img src="https://gcore.jsdelivr.net/gh/luogou/cloudimg/data/20210829144129.png" alt="image-20210829144129297" style="zoom: 80%;float:left" />
+![](https://gcore.jsdelivr.net/gh/luogou/cloudimg/data/20210829144129.png)
 
 代码：
 
