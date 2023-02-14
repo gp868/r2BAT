@@ -172,7 +172,7 @@
 
 - 去重：SELECT DISTINCT... FROM ...
 
-- 顺序：SELECT ... FROM  ... ORDER BY ... ; 
+- 顺序：SELECT ... FROM  ... ORDER BY ... （ASC省略）; 
 
 - 倒序：SELECT ... FROM ... ORDER BY ... DESC; (descending order)
 
@@ -238,24 +238,27 @@
 
   `LIMIT`关键字⽤于强制 SELECT 语句返回指定的记录数。LIMIT 接受⼀个或两个数字参数，参数必须是⼀个整数常量。
 
-  - 如果给定两个参数，第⼀个参数指定起始记录⾏的**偏移量**，第⼆个参数指定末尾记录行；
+  - 如果给定两个参数，第⼀个参数指定起始记录⾏的**偏移量**，第⼆个参数指定记录的**行数**；
 
     ```mysql
-    SELECT * FROM table LIMIT 10,15; // 检索记录⾏11-15
+    SELECT * FROM table LIMIT 10, 5; // 从第11行开始记录5行数据
+    SELECT * FROM table LIMIT 10, 1; // 显示第11行
     ```
 
-  - 如果只给定⼀个参数，它表示返回记录行的数⽬；
+  - 如果只给定⼀个参数，它表示返回从第一行开始记录行的数⽬；
 
     ```mysql
     SELECT * FROM score ORDER BY grade LIMIT 5
-    // 提取出前5条记录
+    // 显示成绩排名前5的j
     ```
 
-  - `offset`关键字
+  - `offset`关键字，后面的参数是记录行的**偏移量**；
 
     ```mysql
     select * from user limit 3 offset 1;
-    // 取第 1 行后面第2, 3, 4行三条数据
+    // 取第2, 3, 4行三条数据
+    select * from user limit 1 offset 4;
+    // 取第 5 行数据
     ```
 
 - 模糊查找
@@ -436,8 +439,8 @@
 
   - **having和where区别：**
 
-  1. having是分组后，where是分组前；
-  2. where不用使用聚合函数，having可以使用聚合函数；
+  1. having用在分组后，where用在分组前；
+  2. where不能使用聚合函数，having可以使用聚合函数；
   3. where在分组之前就会进行筛选，过滤掉的数据不会进入分组；
 
 
