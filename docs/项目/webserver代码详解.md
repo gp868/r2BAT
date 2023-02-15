@@ -360,7 +360,7 @@ HTTP的处理流程分为以下三个步骤：
 
 在连接阶段，最重要的是**tcp连接过程和读取http的请求报文**（其实读取请求报文就是读取客户端发送的数据而已），tcp连接过程涉及epoll内核事件创建等。
 
-<img src="https://test1.jsdelivr.net/gh/gp868/myFigures/img/202204072021336.png" alt="image-20220407202158284" style="zoom:80%;" />
+<img src="https://gcore.jsdelivr.net/gh/gp868/myFigures/img/202204072021336.png" alt="image-20220407202158284" style="zoom:80%;" />
 
 服务器是如何实现读取http的报文的呢？首先，服务器需要对每一个**已建立连接http建立一个http的类对象**，这部分代码如下（服务器一直在运行`eventloop`即回环事件，因为整个服务器其实是事件驱动的）：
 
@@ -542,7 +542,7 @@ void WebServer::dealwithwrite(int sockfd)
 
 **从状态机负责读取报文的一行，主状态机负责对该行数据进行解析**，主状态机内部调用从状态机，从状态机驱动主状态机。
 
-![image-20220403105959011](https://test1.jsdelivr.net/gh/gp868/myFigures/img/202204031059253.png)
+![image-20220403105959011](https://gcore.jsdelivr.net/gh/gp868/myFigures/img/202204031059253.png)
 
 **主状态机**
 
@@ -3586,7 +3586,7 @@ connectionRAII::~connectionRAII(){
 
 **页面跳转**，结合代码对页面跳转机制进行详解。
 
-![image-20220709153537304](https://test1.jsdelivr.net/gh/gp868/myFigures/img/202207091535148.png)
+![image-20220709153537304](https://gcore.jsdelivr.net/gh/gp868/myFigures/img/202207091535148.png)
 
 - `mysql_query`
   - 执行一条 MySQL 查询
