@@ -2880,7 +2880,11 @@ void bucketSort(int arr[], int len) {
   - int const* a：和const int* a相同；
   - int* const a：指针指向的地址不能更改，但是指针指向地址的内容可以更改；
 
+- 调用析构函数的时候类型是 void 类型，指向的是类对象，会正确调用析构函数吗？
+  - void指向系统自建类型，可以使用delete void；
+  - void*所指向的对象在析构函数里释放会丢失内存，因为它不执行析构函数。需要强制转换类型，然后delete；
 
+- 
 
 
 
