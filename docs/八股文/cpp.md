@@ -2946,7 +2946,74 @@ void bucketSort(int arr[], int len) {
 
   数组是一种引用数据类型，数组引用变量只是一个引用，数组元素和数组变量在内存里是分开存放的。实际的数组元素被存储在堆内存中，数组引用变量是一个引用类型的变量，存储在栈内存中。创建数组时，必须明确大小和内容。数组一旦定义下来，其长度不可改变。
 
-- 
+- 指针数组和数组指针的区别？
+
+  数组指针本质是指针，是指向数组的指针；指针数组本质是数组，是保存指针的数组。
+
+  ```cpp
+  int (*p)[4]; // 数组指针
+  // int类型的指针p指向int[4]数组首地址，数组的每一个元素是一个int类型的变量，数组大小为4
+  int *p[4];  // 指针数组
+  // 数组长度为4，所有元素均为int类型的指针
+  ```
+
+- 求一个表达式的值， (int)((（int*）0）+4)
+
+  int a = (int)(((int*)0)+4);  
+
+  a =16，相当于把`(int*)`，这个整形指针加4，即移动`4*sizeof（int）`个字节，即16个字节，然后把这个指针转为int就是16，`(int*)0`地址0，加上16字节后，为0x00000010。
+
+- 下面这段代码最终打印什么
+
+  ```cpp
+  int main () {
+    fork();
+    fork();
+    fork();
+    printf("hello world\n");
+    exit(0);
+  }
+  // 打印2的3次方即8行hello world
+  int main()
+  {
+  	fork();
+  	printf("hello\n");
+  	fork();	
+  	printf("hello\n");
+  }
+  // 打印6行hello world
+  ```
+
+- const int func(const char *const p) const 四个 const 的作用
+
+  1. const修饰函数返回值，可以防止函数返回值被修改；
+  2. 指针指向地址的内容不可更改；
+  3. 指针指向的地址不可以更改；
+  4. const修饰类成员函数，可以防止成员函数修改对象的内容；
+
+- assert 函数说一下？abort 函数调用后程序会咋样？
+
+  `assert` 是宏，而不是函数。它的原型定义在头文件 assert中：
+
+  ```cpp
+  void assert( int expression );
+  ```
+
+  宏 assert 经常用于在函数开始处检验传入参数的合法性，可以将其看作是异常处理的一种高级形式。assert 的作用是先计算表达式expression，然后判断：
+
+  - 如果表达式值为假，那么它先向 stderr 打印错误信息，然后通过调用 abort 来终止程序运行；
+  - 如果表达式值为真，继续运行后面的程序；
+
+  注意：`assert` 只在 `DEBUG` 下生效，在调试结束后，可以通过在 `#include <assert.h>` 语句之前插入 `#define NDEBUG` 来禁用 assert 调用。频繁的调用assert函数会极大的影响程序的性能，增加额外的开销。
+
+  ```cpp
+  #define NDEBUG
+  #include <assert.h>
+  ```
+
+  abort()函数的原型位于头文件cstdlib（或stdlib.h）中，作用是异常终止一个进程，意味着abort后面的代码将不再执行。调用abort()时，不进行任何清理工作，直接终止程序。abort()函数通过发出一个SIGABRT信号终止程序的执行。
+
+
 
 
 
