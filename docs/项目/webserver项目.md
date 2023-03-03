@@ -699,55 +699,27 @@ IO复用需要借助select/poll/epoll，本项目之所以采用epoll，参考�
 - select和poll都只能工作在**相对低效的LT模式下**，而epoll同时支持LT和ET模式。
 - 综上，**当监测的fd数量较小**，且各个fd都很活跃的情况下，建议使用select和poll；**当监听的fd数量较多**，且单位时间仅部分fd活跃的情况下，使用epoll会明显提升性能。
 
-# 四、如何介绍项目
+# 面经
 
-<img src="https://uploadfiles.nowcoder.com/files/20190107/999991352_1546842344555_e37478a009f54d6ea3b138cb2e2a071f.jpeg" alt="999991352_1546842344555_e37478a009f54d6ea3b138cb2e2a071f.jpeg (665×604) (nowcoder.com)" style="zoom:110%;" />
+- 服务端的socket接收缓冲区只剩10个字节，但是客户端发过来一个未经过分片的12个字节的报文。之后客户端和服务端分别会发生什么事情？如果服务端的接收窗口变为0会怎么样？
 
-<img src="https://uploadfiles.nowcoder.com/files/20190107/999991352_1546842344555_40de582bd2374877babee482fc67890d.jpeg" alt="img" style="zoom:110%;" />
+  [Socket缓冲区_summer_west_fish的博客-CSDN博客](https://blog.csdn.net/summer_fish/article/details/121740570)
 
-<img src="https://uploadfiles.nowcoder.com/files/20190107/999991352_1546842344526_5597455e64b545a397b0141d5ce467ba.jpeg" alt="img" style="zoom:110%;" />
+  - 如果缓冲区满了，执行 send 会发生什么？
 
-- 得找一切机会说出你拿得出手的而且当前也非常热门的技术
+  如果 socket 是阻塞的，那么程序会阻塞等待，直到释放出新的缓存空间，就继续把数据拷贝到接收缓冲区，然后返回。如果 socket 是非阻塞的，程序就会立刻返回一个 EAGAIN 错误信息，说明现在缓冲区满了，待会再试一次。
 
-- 避免低级错误
+  - 如果接收缓冲区为空，执行 recv 会发生什么？
 
-<img src="https://uploadfiles.nowcoder.com/files/20190107/999991352_1546842344665_2fdd93d4af58494d81271e3d011fb1aa.jpeg" alt="img" style="zoom:110%;" />
+  如果 socket 是阻塞的，那么程序会阻塞等待，直到接收缓冲区有数据，就会把数据从接收缓冲区拷贝到用户缓冲区，然后返回。如果 socket 是非阻塞的，程序就会立刻返回一个 EAGAIN 错误信息。
 
+  - 如果socket缓冲区还有数据，执行close了，会怎么样？
 
+  有数据没发出去，内核会把发送缓冲区最后一个数据块拿出来，然后置为 FIN。socket 缓冲区是个先进先出的队列，内核会等待TCP层把发送缓冲区数据都发完，最后再执行四次挥手的第一次挥手（FIN包）。
 
+  - 如果接收缓冲区有数据时，执行close了，会怎么样？
 
+  如果接收缓冲区还有数据未读，会先把接收缓冲区的数据清空，然后给对端发一个RST。
 
-
-
-
-
-
-
-------
-
-参考文献
-
-[如何优雅的介绍自己的项目经历_笔经面经_牛客网 (nowcoder.com)](https://www.nowcoder.com/discuss/150755)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+  ![image-20230303110153985](https://gcore.jsdelivr.net/gh/gp868/myFigures/img/image-20230303110153985.png)
 
