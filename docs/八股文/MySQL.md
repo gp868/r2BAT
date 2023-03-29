@@ -181,7 +181,7 @@
 
 - 各关键字的使用顺序
 
-  ```
+  ```sql
   select--from--where--group by--having--order by--limit
   ```
 
@@ -195,7 +195,7 @@
 
 - 多变量排序
 
-  ```mysql
+  ```sql
   SELECT
       cust_id,
       order_num
@@ -208,7 +208,7 @@
 
 - 范围筛选
 
-  ```mysql
+  ```sql
   SELECT 
       prod_name,
       prod_price
@@ -220,7 +220,7 @@
       prod_price;
   ```
 
-  ```mysql
+  ```sql
   SELECT 
       prod_name,
       prod_price
@@ -232,7 +232,7 @@
       prod_price;
   ```
 
-  ```mysql
+  ```sql
   SELECT
       order_num,
       prod_id,
@@ -249,7 +249,7 @@
 
   `LIMIT`关键字：
 
-  ```mysql
+  ```sql
   SELECT ... FROM ... LIMIT [offset,] rows
   ```
 
@@ -257,21 +257,21 @@
 
   - 如果给定两个参数，第⼀个参数指定起始记录⾏的**偏移量**，第⼆个参数指定记录的**行数**；
 
-    ```mysql
+    ```sql
     SELECT * FROM table LIMIT 10, 5; // 从第11行开始记录5行数据
     SELECT * FROM table LIMIT 10, 1; // 显示第11行
     ```
 
   - 如果只给定⼀个参数，它表示返回从第一行开始记录行的数⽬；
 
-    ```mysql
+    ```sql
     SELECT * FROM score ORDER BY grade LIMIT 5
     // 显示成绩排名前5的j
     ```
 
   - `offset`关键字，后面的参数是记录行的**偏移量**；
 
-    ```mysql
+    ```sql
     select * from user limit 3 offset 1;
     // 取第2, 3, 4行三条数据
     select * from user limit 1 offset 4;
@@ -288,7 +288,7 @@
   - _表示单个字符
   - []表示一个字符集
 
-  ```mysql
+  ```sql
   SELECT
       prod_name, 
       prod_desc
@@ -298,7 +298,7 @@
       prod_desc LIKE '%toy%'; // 出现 toy 字段
   ```
 
-  ```mysql
+  ```sql
   SELECT
     prod_name,
     prod_desc
@@ -310,7 +310,7 @@
     prod_name;
   ```
 
-  ```mysql
+  ```sql
   SELECT
       prod_name,
       prod_desc
@@ -320,7 +320,7 @@
       prod_desc LIKE '%toy%' AND prod_desc LIKE '%carrotS%' // 同时出现 toy 和 carrots 两个字段
   ```
 
-  ```mysql
+  ```sql
   SELECT
       prod_name,
       prod_desc
@@ -330,7 +330,7 @@
       prod_desc LIKE '%toy%carrots%'; // 以先后顺序同时出现 toy 和 carrots 字段
   ```
 
-  ```mysql
+  ```sql
   SELECT 
       order_num,
       order_date
@@ -344,7 +344,7 @@
 
 - 别名
 
-  ```mysql
+  ```sql
   SELECT 
       vend_id,
       vend_name vname,
@@ -356,7 +356,7 @@
       vend_name
   ```
 
-  ```mysql
+  ```sql
   SELECT 
       prod_id,
       prod_price,
@@ -376,7 +376,7 @@
   - 字符串的拼接：concat(字符串1，字符串2，字符串3,...)
   - 字母大写：upper(字符串）
 
-  ```mysql
+  ```sql
   SELECT
       cust_id,
       cust_name,
@@ -401,7 +401,7 @@
 
 - 聚合函数只作用非null，因为null数据不参与运算。
 
-  ```mysql
+  ```sql
   select avg(comm), avg(ifnull(comm, 0)) from emp;
   ```
 
@@ -413,7 +413,7 @@
 
   例如：求每个部门所有工资总和。通过deptno字段对表数据进行分组后，然后通过sum(sal)来计算每个分组的总和。
 
-  ```mysql
+  ```sql
   SELECT
   	deptno, SUM(sal)
   FROM 
@@ -424,7 +424,7 @@
 
   例如：查询每个部门工资大于1500的的人数。
 
-  ```mysql
+  ```sql
   SELECT
   	deptno, COUNT(*)
   FROM 
@@ -441,7 +441,7 @@
 
   例如：求工资总和大于9000的部门，并按照工资总和排序。
 
-  ```mysql
+  ```sql
   SELECT
   	deptno, SUM(sal)
   FROM 
@@ -466,7 +466,7 @@
 
 最左匹配原则就是指在联合索引中，如果你的 SQL 语句中用到了联合索引中的最左边的索引，那么这条 SQL 语句就可以利用这个联合索引去进行匹配。例如某表现有索引(a,b,c)，现在你有如下语句：
 
-```mysql
+```sql
 select * from t where a=1 and b=1 and c=1;     #这样可以利用到定义的索引（a,b,c）,用上a,b,c
 select * from t where a=1 and b=1;     #这样可以利用到定义的索引（a,b,c）,用上a,b
 select * from t where b=1 and a=1;     #这样可以利用到定义的索引（a,b,c）,用上a,c（mysql有查询优化器）
@@ -477,13 +477,13 @@ select * from t where a=1 and c=1;     #这样可以利用到定义的索引（a
 
 也就是说通过最左匹配原则你可以定义一个联合索引，使得多种查询条件都可以用到该索引。但是当遇到范围查询(>、<、between、like)就会停止匹配，也就是：
 
-```mysql
+```sql
 select * from t where a=1 and b>1 and c =1; #这样a,b可以用到（a,b,c），c索引用不到 
 ```
 
 这条语句只有 a,b 会用到索引，c 都不能用到索引，原因可以从联合索引的结构来解释。但是如果是建立(a,c,b)联合索引，则a,b,c都可以使用索引，因为优化器会自动改写为最优查询语句。
 
-```mysql
+```sql
 select * from t where a=1 and b >1 and c=1;  #如果是建立(a,c,b)联合索引，则a,b,c都可以使用索引
 #优化器改写为
 select * from t where a=1 and c=1 and b >1;
