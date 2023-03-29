@@ -15,7 +15,7 @@
 
 在ffplay中实现了上述前3种的同步策略。由`sync`参数控制：
 
-```php
+```c
 { "sync", HAS_ARG | OPT_EXPERT, { .func_arg = opt_sync }, "set audio-video sync. type (type=audio/video/ext)", "type" },
 ```
 
@@ -28,7 +28,7 @@
 
 pts是presentation timestamp的缩写，即显示时间戳，用于标记一个帧的呈现时刻。它的单位由timebase决定。timebase的类型是结构体AVRational（用于表示分数）：
 
-```php
+```c
 typedef struct AVRational{
     int num; ///< Numerator
     int den; ///< Denominator
@@ -41,7 +41,7 @@ ffplay的很多自定义结构体中也有pts字段，只不过是double类型�
 
 在做同步的时候，我们需要一个"时钟"的概念，ffplay定义的结构体是Clock：
 
-```php
+```c
 typedef struct Clock {
     double pts;           /* clock base */
     double pts_drift;     /* clock base minus time at which we updated the clock */

@@ -95,7 +95,7 @@ C++ 内存分区：**栈、堆、全局/静态存储区、常量存储区、代�
 - 使用 malloc、calloc、realloc、new 等分配内存时，使用完后要调用相应的 free 或 delete释放内存，否则这块内存就会造成内存泄漏。
 - 指针重新赋值
 
-```php
+```c
 char *p = (char *)malloc(10);
 char *p1 = (char *)malloc(10);
 p = np;
@@ -354,7 +354,7 @@ malloc / free是库函数而不是运算符，只能动态的申请和释放内�
 
    代码实现：
 
-```php
+```c
 template<typename T>
 class SharedPtr{
 public:
@@ -439,7 +439,7 @@ std::unique_ptr<A> ptr2 = std::move(ptr1);
 
 8. 初始化一个智能指针的三种方法：
 
-```php
+```c
 // 利用构造函数来初始化
 std::shared_ptr<int> sp1(new int(123));
  
@@ -464,7 +464,7 @@ decltype 是“declare type”的缩写，译为“声明类型”。和 auto �
 
 auto和decltype的区别：
 
-```php
+```c
 auto var = val1 + val2; 
 decltype(val1 + val2) var1 = 0; 
 ```
@@ -477,7 +477,7 @@ lambda 表达式，又被称为 lambda 函数或者 lambda 匿名函数。
 
 lambda匿名函数的定义:
 
-```php
+```c
 [capture list] (parameter list) -> return type
 {
    function body;
@@ -489,7 +489,7 @@ lambda匿名函数的定义:
 - capture list：捕获列表，指 lambda 所在函数中定义的局部变量的列表，通常为空。
 - return type、parameter list、function body：分别表示返回值类型、参数列表、函数体，和普通函数一样。
 
-```php
+```c
 #include <iostream>
 #include <algorithm>
 using namespace std;
@@ -508,7 +508,7 @@ int main()
 
 **4. 范围 for 语句**
 
-```php
+```c
 for (declaration : expression){
     statement
 }
@@ -525,7 +525,7 @@ for循环后的括号被冒号”:”分为两部分，第一部分是范围内�
 
 2. 迭代的对象要实现++和==操作符。注意：基于范围的for循环使用于标准库的容器时，如果使用auto来声明迭代的对象，那么这个对象不会是迭代器对象，如：
 
-   ```php
+   ```c
    std::vector v{ 1, 2, 3, 4, 5 };
    for (auto e : v) 
    	cout << e << " "; // e为解引用后的对象，不是迭代器
@@ -534,7 +534,7 @@ for循环后的括号被冒号”:”分为两部分，第一部分是范围内�
 **5. 右值引用**
 右值引用：绑定到右值的引用，用 **&&** 来获得右值引用，右值引用只能绑定到要销毁的对象。为了和右值引用区分开，常规的引用称为左值引用。
 
-```php
+```c
 #include <iostream>
 #include <vector>
 using namespace std;
@@ -558,7 +558,7 @@ int main()
 
 **std::move** 可以将一个左值强制转化为右值，继而可以通过右值引用使用该值，以用于移动语义。
 
-```php
+```c
 #include <iostream>
 using namespace std;
 
@@ -600,7 +600,7 @@ typename remove_reference<T>::type&& move(T&& t)
 
 **remove_reference** 具体实现：
 
-```php
+```c
 //原始的，最通用的版本
 template <typename T> struct remove_reference{
     typedef T type;  //定义 T 的类型别名为 type
@@ -622,7 +622,7 @@ remove_refrence<decltype(std::move(i))>::type  b;  //右值引用特例版本
 
 举例：
 
-```php
+```c
 int var = 10; 
 
 转化过程：
@@ -800,7 +800,7 @@ strcpy，memcpy和memset主要有以下三点区别：
 
   3. 编译可以用gcc/g++，而链接可以用g++或者gcc -lstdc++。因为gcc命令不能自动和C++程序使用的库联接（当然可以选择手动链接，使用命令如下），所以通常使用g++来完成联接。但在编译阶段，g++会自动调用gcc，二者等价。
 
-     ```php
+     ```c
      gcc main1.cpp -lstdc++
      ```
 
@@ -894,7 +894,7 @@ class的默认继承方式为private，而struct的默认继承方式为public�
 
 可以通过指定访问哪个父类来解决二义性：
 
-```php
+```c
 class Person{
 public:
 	string _name; // 姓名
@@ -927,7 +927,7 @@ void Test(){
 
 在继承方式前面加上 `virtual `关键字就是虚继承，
 
-```php
+```c
 class Person{
 public:
 	string _name; // 姓名
@@ -997,7 +997,7 @@ int main(){
 
 例子1：
 
-```php
+```c
 class A{};
 class B{
 public:
@@ -1028,7 +1028,7 @@ int _tmain(int argc, _TCHAR* argv[]){
 
 例子2：
 
-```php
+```c
 class CBase { 
 	int a; 
 	char p; 
@@ -1067,7 +1067,7 @@ class d : public b,public c{}; // 8
 
 **隐藏**：是指派生类的函数屏蔽了与其同名的基类函数，主要只要同名函数，不管参数列表是否相同，基类函数都会被隐藏。
 
-```php
+```c
 #include <iostream>
 using namespace std;
 
@@ -1100,7 +1100,7 @@ int main(){
 
 **重载**：是指同一可访问区内被声明几个具有不同参数列（参数的类型、个数、顺序）的同名函数，根据参数列表确定调用哪个函数，重载不关心函数返回类型。
 
-```php
+```c
 class A{
 public:
     void fun(int tmp);
@@ -1113,7 +1113,7 @@ public:
 
 **重写**：是指派生类中存在重新定义的函数。函数名、参数列表、返回值类型都必须同基类中被重写的函数一致，只有函数体不同。派生类调用时会调用派生类的重写函数，不会调用被重写函数。重写的基类中被重写的函数必须有 virtual 修饰。
 
-```php
+```c
 #include <iostream>
 using namespace std;
 
@@ -1227,7 +1227,7 @@ int main(){
 
 深拷贝与浅拷贝之间的区别就在于**深拷贝会在堆内存中另外申请空间来存储数据，从而也就解决来野指针的问题**。浅拷贝仅进行数据的一一复制，新数据和旧数据共用一块堆内存，会出现同一块内存空间被释放两次的情况。当数据成员中有指针时，必需要用深拷贝，更加安全。
 
-```php
+```c
 class Person {
 public:
 	//无参（默认）构造函数
@@ -1393,7 +1393,7 @@ vptr跟着对象走，所以对象什么时候创建出来，vptr就什么时候
 - 模板参数列表不能为空；
 - 模板类型参数前必须使用关键字 class 或者 typename，在模板参数列表中这两个关键字含义相同，可互换使用。
 
-```php
+```c
 template <typename T, typename U, ...>
 ```
 
@@ -1402,7 +1402,7 @@ template <typename T, typename U, ...>
 - 对于函数模板而言，模板类型参数可以用来指定返回类型或函数的参数类型，以及在函数体内用于变量声明或类型转换。
 - 函数模板实例化：当调用一个模板时，编译器用函数实参来推断模板实参，从而使用实参的类型来确定绑定到模板参数的类型。
 
-```php
+```c
 #include<iostream>
 
 using namespace std;
@@ -1426,7 +1426,7 @@ int main(){
 
 类模板：类似函数模板，类模板以关键字 template 开始，后跟模板参数列表。但是，编译器不能为类模板推断模板参数类型，需要在使用该类模板时，在模板名后面的尖括号中指明类型。
 
-```php
+```c
 #include <iostream>
 
 using namespace std;
@@ -1479,7 +1479,7 @@ int main()
 
 函数模板调用方式举例：
 
-```php
+```c
 #include<iostream>
 
 using namespace std;
@@ -1560,7 +1560,7 @@ Hello wolrd !
 
 说明：要区分下函数重载与函数模板特化。定义函数模板的特化版本，本质上是接管了编译器的工作，为原函数模板定义了一个特殊实例，而不是函数重载，函数模板特化并不影响函数匹配。
 
-```php
+```c
 #include <iostream>
 #include <cstring>
 
@@ -1670,7 +1670,7 @@ STL ⼀共提供六⼤组件，包括**容器，算法，迭代器，仿函数�
 
 Iterator（迭代器）模式又称游标（Cursor）模式，用于提供一种方法顺序访问一个聚合对象中各个元素，而又不需暴露该对象的内部表示。 或者这样说可能更容易理解：Iterator模式是运用于聚合对象的一种模式，通过运用该模式，我们可以在不知道对象内部表示的情况下，按照一定顺序（由iterator提供的方法）访问聚合对象中的各个元素。 由于Iterator模式的以上特性：与聚合对象耦合，在一定程度上限制了它的广泛运用，一般仅用于底层聚合支持类，如STL的list、vector、stack等容器类及ostream_iterator等扩展Iterator。
 
-```php
+```c
 #include <vector>
 #include <iostream>
 using namespace std;
@@ -1762,7 +1762,7 @@ vector 的数据结构中其实就是三个迭代器构成的，⼀个指向⽬�
 
 Vector通过一个连续的数组存放元素，如果集合已满，在新增数据的时候，就要分配一块更大的内存，将原来的数据复制过来，释放之前的内存，再插入新增的元素。插入新数据可以通过最后插入`push_back`和通过迭代器在任何位置插入`insert()`。通过迭代器与第一个元素的距离知道要插入的位置，即`int index = iter - begin()`，这个元素后面的所有元素都向后移动一个位置，在空出来的位置上存入新增的元素。
 
-```php
+```c
 //新增元素
 void insert(const_iterator iter, const T &t){
     int index = iter - begin();
@@ -1784,7 +1784,7 @@ void insert(const_iterator iter, const T &t){
 
 删除全部元素`clear`：只是循环调用了`erase`，所以删除全部元素的时候不释放内存，内存是在析构函数中释放的。
 
-```php
+```c
 //删除元素
 iterator erase(const_iterator iter){
     int index = iter - begin();
@@ -1806,7 +1806,7 @@ iterator erase(const_iterator iter){
 
 1. 若通过构造参数向vector中插入对象，emplace_back更高效：
 
-```php
+```c
 std::vector<A> a;
 a.emplace_back(1);  
 a.push_back(2);
@@ -1818,7 +1818,7 @@ push_back：（1）调用有参构造函数 A (int x_arg) 创建临时对象；�
 
 2. 插入临时对象，二者一样，调用移动构造函数：
 
-```php
+```c
 std::vector<A> a;
 a.emplace_back(A(1)); 
 a.push_back(A(2));
@@ -1828,7 +1828,7 @@ a.push_back(A(2));
 
 3. 插入实例化的对象，二者还是一样，调用拷贝构造函数：
 
-```php
+```c
 std::vector<A> a;
 A obj(1);
 a.emplace_back(obj); 
@@ -1894,7 +1894,7 @@ deque由一段一段的定量连续空间组成，一旦需要增加新的空间
 
 deque的数据结构如下：
 
-```php
+```c
 class deque{
     ...
 protected:
@@ -1915,7 +1915,7 @@ deque内部有一个指针指向map，map是一小块连续空间，其中的每
 
 deque的迭代器数据结构如下：
 
-```php
+```c
 struct __deque_iterator{
     ...
     T* cur;		//迭代器所指缓冲区当前的元素
@@ -1939,7 +1939,7 @@ deque迭代器的“++”、“--”操作是远比vector迭代器繁琐，其�
 
 list节点的结构见如下源码：
 
-```php
+```c
 template <class T>
 struct __list_node{
     typedef void* void_pointer;
@@ -2164,7 +2164,7 @@ MySQL 默认的存储引擎 InnoDB 采用 B+ 树作为索引的数据结构，�
 
 **stack**（栈）是一种先进后出的数据结构，只有一个入口和出口，那就是栈顶，除了获取栈顶元素外，没有其他方法可以获取到内部的其他元素。stack这种单向开口的数据结构很容易由双向开口的`deque`或者`list`形成，只需要根据stack的性质修改某些接口即可实现，stack的源码如下：
 
-```php
+```c
 template <class T, class Sequence = deque<T>>
 class stack{
 	...
@@ -2188,7 +2188,7 @@ stack除了默认使用deque作为其底层容器之外，也可以使用双向�
 
 类似的，queue这种先进先出的数据结构很容易由双向开口的`deque`或者`list`形成，只需要根据queue的性质修改某些接口即可实现，queue的源码如下：
 
-```php
+```c
 template <class T, class Sequence = deque<T>>
 class queue{
 	...
@@ -2250,7 +2250,7 @@ priority_queue（优先级队列）是一个拥有权值观念的queue，它跟q
 
 priority_queue的这种实现机制导致其不被归为容器，而是一种容器配接器。关键的源码如下：
 
-```php
+```c
 template <class T, class Squence = vector<T>, 
 class Compare = less<typename Sequence::value_tyoe>>
 class priority_queue{

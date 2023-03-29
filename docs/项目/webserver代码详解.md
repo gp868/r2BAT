@@ -126,7 +126,7 @@ IO密集型，可以多设置一些线程，主要目的是增加IO的并发度�
 
 线程池采用模板编程，这是为了增强其拓展性：各种任务种类都可支持。具体定义可以看代码。需要注意，线程处理函数和运行函数设置为私有属性。
 
-```php
+```c
 template <typename T>
 class threadpool
 {
@@ -165,7 +165,7 @@ private:
 
 **pthread_create函数**：
 
-```php
+```c
 #include <pthread.h>
 //返回新生成的线程的id
 int pthread_create(pthread_t *thread_tid,//新生成的线程的id         
@@ -177,7 +177,7 @@ int pthread_create(pthread_t *thread_tid,//新生成的线程的id
 
 函数原型中的第三个参数，**为函数指针，指向处理线程函数的地址**，该函数**要求为静态函数**。如果处理线程函数为类成员函数时，需要将其设置为**静态成员函数，因为类的非静态成员函数有this指针，就跟void\*不匹配**。而静态成员函数就没有这个问题，它没有this指针。
 
-```php
+```c
 template <typename T>
 //线程池构造函数
 threadpool<T>::threadpool( int actor_model, connection_pool *connPool, int thread_number, int max_requests)
@@ -226,7 +226,7 @@ threadpool<T>::~threadpool()
 
 通过**list**容器创建请求队列，向队列中添加时，通过**互斥锁**保证线程安全，添加完成后通过**信号量**提醒有任务要处理，最后注意线程同步。
 
-```php
+```c
 template <typename T>
 //reactor模式下的请求入队
 bool threadpool<T>::append(T *request, int state)
@@ -266,7 +266,7 @@ bool threadpool<T>::append_p(T *request)
 
 内部访问私有成员函数run，完成线程处理要求。
 
-```php
+```c
 //工作线程:pthread_create时就调用了它
 template <typename T>
 void *threadpool<T>::worker(void *arg)
@@ -286,7 +286,7 @@ void *threadpool<T>::worker(void *arg)
 
 run()函数可以看做**是一个回环事件**，一直等待m_queuestat()信号变量post（在append()中），即新任务进入请求队列，这时从请求队列中取出一个任务进行处理。
 
-```php
+```c
 //线程池中的所有线程都睡眠，等待请求队列中新增任务
 template <typename T>
 void threadpool<T>::run()
@@ -369,7 +369,7 @@ HTTP的处理流程分为以下三个步骤：
 
 服务器是如何实现读取http的报文的呢？首先，服务器需要对每一个**已建立连接http建立一个http的类对象**，这部分代码如下（服务器一直在运行`eventloop`即回环事件，因为整个服务器其实是事件驱动的）：
 
-```php
+```c
 //事件回环（即服务器主线程）
 void WebServer::eventLoop()
 {
@@ -438,7 +438,7 @@ void WebServer::eventLoop()
 
 
 
-```php
+```c
 //处理客户连接上接收到的数据
 void WebServer::dealwithread(int sockfd)
 {
@@ -569,7 +569,7 @@ void WebServer::dealwithwrite(int sockfd)
 
 各子线程通过 `process` 函数对任务进行处理，调用 `process_read` 函数和 `process_write` 函数分别完成报文解析与报文响应两个任务。
 
-```php
+```c
 //处理http报文请求与报文响应
 //根据read/write的buffer进行报文的解析和响应
 void http_conn::process()
@@ -631,7 +631,7 @@ void http_conn::process()
   - 调用get_line函数，通过m_start_line将从状态机读取数据间接赋给text
   - 主状态机解析text
 
-```php
+```c
  //m_start_line是行在buffer中的起始位置，将该位置后面的数据赋给text
  //此时从状态机已提前将一行的末尾字符\r\n变为\0\0，所以text可以直接取出完整的行进行解析
  
@@ -725,7 +725,7 @@ http_conn::HTTP_CODE http_conn::process_read()
   - 当前字节既不是\r，也不是\n，表示接收不完整，需要继续接收，返回LINE_OPEN
 
 
-```php
+```c
 //从状态机，用于分析出一行内容
 //返回值为行的读取状态，有LINE_OK, LINE_BAD, LINE_OPEN
 
@@ -785,7 +785,7 @@ http_conn::LINE_STATUS http_conn::parse_line()
   - 解析完成后主状态机的状态变为CHECK_STATE_HEADER
 
 
-```php
+```c
 //解析http请求行，获得请求方法，目标url及http版本号
 http_conn::HTTP_CODE http_conn::parse_request_line(char *text)
 {
@@ -876,7 +876,7 @@ http_conn::HTTP_CODE http_conn::parse_request_line(char *text)
 
 
 
-```php
+```c
 //解析http请求的一个头部信息
 http_conn::HTTP_CODE http_conn::parse_headers(char *text)
 {
@@ -936,7 +936,7 @@ GET和POST请求报文的区别之一是有无消息体部分，GET请求没有�
 
 为此，我们需要在解析报文的部分添加解析消息体的模块。
 
-```php
+```c
 while((m_check_state==CHECK_STATE_CONTENT && line_status==LINE_OK)||
       ((line_status=parse_line())==LINE_OK))
 ```
@@ -960,7 +960,7 @@ while((m_check_state==CHECK_STATE_CONTENT && line_status==LINE_OK)||
   - 用于保存post请求消息体，为后面的登录和注册做准备
 
 
-```php
+```c
 //判断http请求是否被完整读入
 http_conn::HTTP_CODE http_conn::parse_content(char *text)
 {
@@ -994,7 +994,7 @@ http_conn::HTTP_CODE http_conn::parse_content(char *text)
 
 其实往响应报文里写的就是服务器中html的文件数据，浏览器端对其进行解析、渲染并显示在浏览器页面上。另外，用户登录注册的验证逻辑代码在do_request()中，通过对Mysql数据库进行查询或插入，验证、添加用户。
 
-```php
+```c
 #include <sys/mman.h>
 void *mmap(void *addr, size_t length, int prot, int flags,int fd, off_t offset);
     - 功能：将一个文件或者设备的数据映射到内存中
@@ -1033,7 +1033,7 @@ int munmap(void *addr, size_t length);
 
 定义一个向量元素，通常这个结构用作一个多元素的数组。
 
-```php
+```c
 struct iovec {
     void      *iov_base;      /* starting address of buffer */
     size_t    iov_len;        /* size of buffer */
@@ -1047,7 +1047,7 @@ struct iovec {
 
 writev函数用于在一次函数调用中写多个非连续缓冲区，又称为聚集写。
 
-```php
+```c
 #include <sys/uio.h>
 ssize_t writev(int filedes, const struct iovec *iov, int iovcnt);
 ```
@@ -1152,7 +1152,7 @@ m_url为请求报文中解析出的请求资源，以/开头，也就是`/xxx`�
 
   - POST请求，跳转到fans.html，即关注页面
 
-```php
+```c
 //网站根目录，文件夹内存放请求的资源和跳转的html文件
 const char* doc_root = "/home/qgy/github/ini_tinywebserver/root";
 
@@ -1309,7 +1309,7 @@ http_conn::HTTP_CODE http_conn::do_request()
 
 HTTP响应由四个部分组成，分别是：状态行、消息报头、空行和响应正文。
 
-```php
+```c
 HTTP/1.1 200 OK
 Date: Fri, 22 May 2009 06:07:21 GMT
 Content-Type: text/html; charset=UTF-8
@@ -1336,7 +1336,7 @@ Content-Type: text/html; charset=UTF-8
 
 上述涉及的5个函数，均是内部调用`add_response`函数更新`m_write_idx`指针和缓冲区`m_write_buf`中的内容。
 
-```php
+```c
 //添加响应报文的公共函数
 bool http_conn::add_response(const char *format, ...)
 {
@@ -1415,7 +1415,7 @@ bool http_conn::add_content(const char *content)
 - iovec是一个结构体，里面有两个元素，指针成员iov_base指向一个缓冲区，这个缓冲区是存放的是writev将要发送的数据。
 - 成员iov_len表示实际写入的长度
 
-```php
+```c
 //生成响应报文
 bool http_conn::process_write(HTTP_CODE ret)
 {
@@ -1507,7 +1507,7 @@ bool http_conn::process_write(HTTP_CODE ret)
   - 若eagain则满了，更新iovec结构体的指针和长度，并注册写事件，等待下一次写事件触发（当写缓冲区从不可写变为可写，触发epollout），因此在此期间无法立即接收到同一用户的下一请求，但可以保证连接的完整性。
 
 
-```php
+```c
 //往响应报文写入数据
 bool http_conn::write()
 {
@@ -1622,7 +1622,7 @@ bool http_conn::write()
 
 **sigaction**
 
-```php
+```c
 #include <signal.h>
 int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact);
     - 功能：检查或者改变信号的处理，即信号捕捉
@@ -1657,7 +1657,7 @@ int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact)
 
 **alarm**
 
-```php
+```c
 #include <unistd.h>
 unsigned int alarm(unsigned int seconds);
     - 功能：设置定时器（闹钟）。函数调用，开始倒计时，当倒计时为0的时候，函数会给当前的进程发送一个信号：SIGALARM
@@ -1678,7 +1678,7 @@ alarm(100) -> 该函数是不阻塞的
 
 **sigfillset**
 
-```php
+```c
 int sigfillset(sigset_t *set);
     - 功能：将信号集中的所有的标志位置为1
     - 参数：set：传出参数，需要操作的信号集
@@ -1689,7 +1689,7 @@ int sigfillset(sigset_t *set);
 
 自定义信号处理函数，创建sigaction结构体变量，设置信号函数。
 
-```php
+```c
 //信号处理函数
 void Utils::sig_handler(int sig)
 {
@@ -1706,7 +1706,7 @@ void Utils::sig_handler(int sig)
 
 信号处理函数中仅仅通过管道发送信号值，不处理信号对应的逻辑，缩短异步执行时间，减少对主程序的影响。
 
-```php
+```c
 //设置信号函数
 void Utils::addsig(int sig, void(handler)(int), bool restart)
 {
@@ -1738,7 +1738,7 @@ void Utils::addsig(int sig, void(handler)(int), bool restart)
 
 - 信息值传递给主循环，主循环再根据接收到的信号值执行目标信号对应的逻辑代码；
 
-```php
+```c
 //定时处理任务，重新定时以不断触发SIGALRM信号
 void Utils::timer_handler()
 {
@@ -1821,7 +1821,7 @@ void WebServer::eventLoop()
     }
 ```
 
-```php
+```c
 //处理定时器信号,set the timeout ture
 bool WebServer::dealwithsignal(bool &timeout, bool &stop_server)
 {
@@ -1895,7 +1895,7 @@ switch的变量一般为字符或整型，当switch的变量为字符时，case�
 - 定时事件为回调函数，将其封装起来由用户自定义，这里是删除非活动socket上的注册事件，并关闭；
 - 定时器超时时间 = 浏览器和服务器连接时刻 + 固定时间(TIMESLOT)，可以看出，定时器使用绝对时间作为超时值，这里alarm设置为5秒，连接超时为15秒。
 
-```php
+```c
 //连接资源结构体成员需要用到定时器类
 //需要前向声明
 class util_timer;
@@ -1933,7 +1933,7 @@ public:
 
 定时事件：从内核事件表删除事件，关闭文件描述符，释放连接资源。
 
-```php
+```c
 class Utils;
 //定时器回调函数(callback)：从内核事件表删除事件，关闭文件描述符，释放连接资源
 void cb_func(client_data *user_data)
@@ -1974,7 +1974,7 @@ void cb_func(client_data *user_data)
   - 常规双向链表删除结点
 
 
-```php
+```c
 //定时器容器类
 class sort_timer_lst
 {
@@ -2002,7 +2002,7 @@ private:
 };
 ```
 
-```php
+```c
 //定时器容器类的构造函数
 sort_timer_lst::sort_timer_lst()
 {
@@ -2167,7 +2167,7 @@ void sort_timer_lst::add_timer(util_timer *timer, util_timer *lst_head)
 - 若当前时间小于定时器超时时间，跳出循环，即未找到到期的定时器；
 - 若当前时间大于定时器超时时间，即找到了到期的定时器，执行回调函数，然后将它从链表中删除，然后继续遍历；
 
-```php
+```c
 //定时任务处理函数
 void sort_timer_lst::tick()
 {
@@ -2218,7 +2218,7 @@ void sort_timer_lst::tick()
 - 处理读事件时，若某连接上发生读事件，将对应定时器向后移动，否则，执行定时事件；
 - 处理写事件时，若服务器通过某连接给浏览器发送数据，将对应定时器向后移动，否则，执行定时事件；
 
-```php
+```c
 //定时处理任务，重新定时以不断触发SIGALRM信号
 void Utils::timer_handler()
 {
@@ -2301,7 +2301,7 @@ void WebServer::eventLoop()
     }
 ```
 
-```php
+```c
 //http 处理用户数据
 bool WebServer::dealclinetdata()
 {
@@ -2377,7 +2377,7 @@ void WebServer::timer(int connfd, struct sockaddr_in client_address)
 }
 ```
 
-```php
+```c
 //删除定时器节点，关闭连接
 void WebServer::deal_timer(util_timer *timer, int sockfd)
 {
@@ -2392,7 +2392,7 @@ void WebServer::deal_timer(util_timer *timer, int sockfd)
 }
 ```
 
-```php
+```c
 //处理定时器信号，将定时标志设置为true
 bool WebServer::dealwithsignal(bool &timeout, bool &stop_server)
 {
@@ -2439,7 +2439,7 @@ bool WebServer::dealwithsignal(bool &timeout, bool &stop_server)
 }
 ```
 
-```php
+```c
 //处理客户连接上接收到的数据
 void WebServer::dealwithread(int sockfd)
 {
@@ -2523,7 +2523,7 @@ void WebServer::deal_timer(util_timer *timer, int sockfd)
 }
 ```
 
-```php
+```c
 //写操作
 void WebServer::dealwithwrite(int sockfd)
 {
@@ -2616,7 +2616,7 @@ void WebServer::dealwithwrite(int sockfd)
 
 单例模式的实现思路如前述所示，其中，经典的**线程安全懒汉模式**，使用**双检测锁模式**。
 
-```php
+```c
 class single{
 private:
     //私有静态指针变量指向唯一实例
@@ -2655,7 +2655,7 @@ single* single::getinstance(){
 
 前面的双检测锁模式，写起来不太优雅，《Effective C++》（Item 04）中的提出另一种更优雅的单例模式实现，使用函数内的局部静态对象，这种方法**不用加锁和解锁操作**。
 
-```php
+```c
 class single{
 private:
     single(){}
@@ -2675,7 +2675,7 @@ single* single::getinstance(){
 
 所以，如果使用C++11之前的标准，还是需要加锁，这里同样给出加锁的版本。
 
-```php
+```c
 class single{
 private:
     static pthread_mutex_t lock;
@@ -2700,7 +2700,7 @@ single* single::getinstance(){
 
 饿汉模式**不需要用锁**，就可以实现线程安全。原因在于，在程序运行时就定义了对象，并对其初始化。之后，不管哪个线程调用成员函数getinstance()，都只不过是返回一个对象的指针而已，所以是线程安全的，不需要在获取实例的成员函数中加锁。
 
-```php
+```c
 class single{
 private:
     static single* p;
@@ -2729,7 +2729,7 @@ single* single::getinstance(){
 
 使用pthread_cond_wait方式如下：
 
-```php
+```c
 pthread _mutex_lock(&mutex)
 while(线程执行的条件是否成立){
     pthread_cond_wait(&cond, &mutex);
@@ -2773,7 +2773,7 @@ pthread_cond_wait执行后的内部操作分为以下几步：
 
 所以，在这种情况下，应该使用while而不是if:
 
-```php
+```c
 while(resource == FALSE)
     pthread_cond_wait(&cond, &mutex);
 ```
@@ -2786,7 +2786,7 @@ while(resource == FALSE)
 
 生产者和消费者是互斥关系，两者对缓冲区访问互斥，同时生产者和消费者又是一个相互协作与同步的关系，只有生产者生产之后，消费者才能消费。
 
-```php
+```c
 #include <pthread.h>
 struct msg {
   struct msg *m_next;
@@ -2834,7 +2834,7 @@ void enqueue_msg(struct msg* mp) {
 
 当队列为空时，从队列中获取元素的线程将会被挂起；当队列是满时，往队列里添加元素的线程将会挂起。
 
-```php
+```c
 /*************************************************************
 *循环数组实现的阻塞队列，m_back = (m_back + 1) % m_max_size;  
 *线程安全，每个操作前都要先加互斥锁，操作完后，再解锁
@@ -3036,7 +3036,7 @@ private:
 
 **fputs**
 
-```php
+```c
 #include <stdio.h>
 int fputs(const char *str, FILE *stream);
 ```
@@ -3048,7 +3048,7 @@ int fputs(const char *str, FILE *stream);
 
 `__VA_ARGS__`是一个可变参数的宏，定义时宏定义中参数列表的最后一个参数为省略号，在实际使用时会发现有时会加##，有时又不加。
 
-```php
+```c
 //最简单的定义
 #define my_print1(...)  printf(__VA_ARGS__)
 
@@ -3061,7 +3061,7 @@ int fputs(const char *str, FILE *stream);
 
 **fflush**
 
-```php
+```c
 #include <stdio.h>
 int fflush(FILE *stream);
 ```
@@ -3098,7 +3098,7 @@ int fflush(FILE *stream);
 - 内容格式化方法
 - 刷新缓冲区
 
-```php
+```c
 class Log{
 public:
     //C++11以后，使用局部变量懒汉不用加锁
@@ -3171,7 +3171,7 @@ private:
 
 写入方式通过初始化时**是否设置队列大小**（表示在队列中可以放几条数据）来判断，若队列大小为0，则为同步，否则为异步。
 
-```php
+```c
 //异步需要设置阻塞队列的长度，同步不需要设置
 bool Log::init(const char *file_name, int close_log, int log_buf_size, int split_lines, int max_queue_size)
 {
@@ -3254,7 +3254,7 @@ bool Log::init(const char *file_name, int close_log, int log_buf_size, int split
 
 将系统信息格式化后输出，具体为：格式化时间 + 格式化内容。
 
-```php
+```c
 void Log::write_log(int level, const char *format, ...)
 {
     struct timeval now = {0, 0};
@@ -3363,7 +3363,7 @@ void Log::write_log(int level, const char *format, ...)
 
 使用局部静态变量懒汉模式创建连接池。
 
-```php
+```c
 class connection_pool
 {
 public:
@@ -3389,7 +3389,7 @@ connection_pool *connection_pool::GetInstance()
   - 初始化数据库
 - `mysql_real_connect`
   - 连接数据库服务器
-  - [PHP mysqli_real_connect() 函数 | 菜鸟教程 (runoob.com)](https://www.runoob.com/php/func-mysqli-real-connect.html)
+  - [c mysqli_real_connect() 函数 | 菜鸟教程 (runoob.com)](https://www.runoob.com/c/func-mysqli-real-connect.html)
 - `mysql_close`
   - 关闭数据库连接
 
@@ -3399,7 +3399,7 @@ connection_pool *connection_pool::GetInstance()
 
 值得注意的是，销毁连接池没有直接被外部调用，而是通过RAII机制来完成自动释放；使用**信号量**实现多线程争夺连接的同步机制，这里将信号量初始化为数据库的连接总数。
 
-```php
+```c
 connection_pool::connection_pool()
 {
     this->CurConn = 0;
@@ -3458,7 +3458,7 @@ void connection_pool::init(string url, string User, string PassWord,
 
 当线程数量大于数据库连接数量时，使用信号量进行同步，每次取出连接，信号量原子减1，释放连接原子加1，若连接池内没有连接了，则阻塞等待。另外，由于多线程操作连接池，会造成竞争，这里使用互斥锁完成同步，具体的同步机制均使用lock.h中封装好的类。
 
-```php
+```c
 //当有请求时，从数据库连接池中返回一个可用连接，更新使用和空闲连接数
 MYSQL *connection_pool::GetConnection()
     MYSQL *con = NULL;
@@ -3496,7 +3496,7 @@ bool connection_pool::ReleaseConnection(MYSQL *con)
 
 通过迭代器遍历连接池链表，关闭对应数据库连接，清空链表并重置空闲连接和现有连接数量。
 
-```php
+```c
 //销毁数据库连接池
 void connection_pool::DestroyPool()
 {
@@ -3528,7 +3528,7 @@ void connection_pool::DestroyPool()
 
 这里需要注意的是，在获取连接时，通过有参构造对传入的参数进行修改。其中数据库连接本身是指针类型，所以参数需要通过双指针才能对其进行修改。
 
-```php
+```c
 class connectionRAII{
 public:
     //双指针对MYSQL *con修改
@@ -3578,7 +3578,7 @@ connectionRAII::~connectionRAII(){
 
 将数据库中的用户名和密码载入到服务器的map中来，map中的key为用户名，value为密码。
 
-```php
+```c
 //用户名和密码
 map<string, string> users;
 
@@ -3617,7 +3617,7 @@ void http_conn::initmysql_result(connection_pool *connPool)
 
 服务器端解析浏览器的请求报文，当解析为POST请求时，cgi标志位设置为1，并将请求报文的消息体赋值给m_string，进而提取出用户名和密码。
 
-```php
+```c
 //判断http请求是否被完整读入
 http_conn::HTTP_CODE http_conn::parse_content(char *text)
 {
@@ -3666,7 +3666,7 @@ password[j] = '\0';
 
 根据校验结果，跳转对应页面。另外，对数据库进行操作时，需要通过锁来同步。
 
-```php
+```c
 const char *p = strrchr(m_url, '/');
 if (0 == m_SQLVerify)
 {
@@ -3722,7 +3722,7 @@ if (0 == m_SQLVerify)
 - 6：显示视频页面，POST
 - 7：显示关注页面，POST
 
-```php
+```c
 //找到url中/所在位置，进而判断/后第一个字符
 const char *p = strrchr(m_url, '/');
 
@@ -3782,7 +3782,7 @@ else
 
 先看下之前的大文件传输，也就是游双书上的代码，发送数据只调用了writev函数，并对其返回值是否异常做了处理。
 
-```php
+```c
 bool http_conn::write()
 {
     int temp = 0;
@@ -3843,7 +3843,7 @@ bool http_conn::write()
 
 更新后，大文件传输得到了解决。
 
-```php
+```c
 bool http_conn::write()
 {
     int temp = 0;

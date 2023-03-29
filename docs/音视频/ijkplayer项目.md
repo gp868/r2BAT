@@ -18,7 +18,7 @@
 
 - git大文件下载
 
-   ```php
+   ```c
    brew install git-lfs
    git lfs install
    git lfs pull
@@ -73,7 +73,7 @@ ijkplayer在底层重写了ffplay.c文件，主要是去除ffplay中使用sdl音
 
 当外部调用prepareToPlay启动播放后，ijkplayer内部最终会调用到ffplay.c中的方法`int ffp_prepare_async_l(FFPlayer *ffp, const char *file_name)`，该方法是启动播放器的入口函数，在此会设置player选项，打开audio output，最重要的是调用`stream_open`方法。
 
-```php
+```c
 static VideoState *stream_open(FFPlayer *ffp, const char *filename, AVInputFormat *iformat)
 {  
     ......           
@@ -114,44 +114,44 @@ static VideoState *stream_open(FFPlayer *ffp, const char *filename, AVInputForma
 
 1. 创建上下文结构体，这个结构体是最上层的结构体，表示输入上下文
 
-```php
+```c
 ic = avformat_alloc_context();
 ```
 
 2. 设置中断函数，如果出错或者退出，就可以立刻退出
 
-```php
+```c
 ic->interrupt_callback.callback = decode_interrupt_cb;
 ic->interrupt_callback.opaque = is；
 ```
 
 3. 打开文件，主要是探测协议类型，如果是网络文件则创建网络链接等
 
-```php
+```c
 err = avformat_open_input(&ic, is->filename, is->iformat, &ffp->format_opts);
 ```
 
 4. 探测媒体类型，可得到当前文件的封装格式，音视频编码参数等信息
 
-```php
+```c
 err = avformat_find_stream_info(ic, opts);
 ```
 
 5. 打开视频、音频解码器。在此会打开相应解码器，并创建相应的解码线程。
 
-```php
+```c
 stream_component_open(ffp, st_index[AVMEDIA_TYPE_AUDIO]);
 ```
 
 6. 读取媒体数据，得到的是音视频分离的解码前数据
 
-```php
+```c
 ret = av_read_frame(ic, pkt);
 ```
 
 7. 将音视频数据分别送入相应的queue中
 
-```php
+```c
 if (pkt->stream_index == is->audio_stream && pkt_in_play_range) {
     packet_queue_put(&is->audioq, pkt);
 } else if (pkt->stream_index == is->video_stream && pkt_in_play_range && !(is->video_st && (is->video_st->disposition & AV_DISPOSITION_ATTACHED_PIC))) {
@@ -176,7 +176,7 @@ ijkplayer在视频解码上支持软解和硬解两种方式，可在起播前�
 
 在打开解码器的方法中：
 
-```php
+```c
 static int stream_component_open(FFPlayer *ffp, int stream_index)
 {
     ......
@@ -200,7 +200,7 @@ static int stream_component_open(FFPlayer *ffp, int stream_index)
 
 首先会打开ffmpeg的解码器，然后通过`ffpipeline_open_video_decoder`创建IJKFF_Pipenode。在创建IJKMediaPlayer对象时，通过`ffpipeline_create_from_android`创建了pipeline。该函数实现如下：
 
-```php
+```c
 IJKFF_Pipenode* ffpipeline_open_video_decoder(IJKFF_Pipeline *pipeline, FFPlayer *ffp)
 {
     return pipeline->func_open_video_decoder(pipeline, ffp);
@@ -209,7 +209,7 @@ IJKFF_Pipenode* ffpipeline_open_video_decoder(IJKFF_Pipeline *pipeline, FFPlayer
 
 `func_open_video_decoder`函数指针最后指向的是ffpipeline_android.c中的`func_open_video_decoder`，其定义如下：
 
-```php
+```c
 static IJKFF_Pipenode *func_open_video_decoder(IJKFF_Pipeline *pipeline, FFPlayer *ffp)
 {
     IJKFF_Pipeline_Opaque *opaque = pipeline->opaque;
@@ -228,7 +228,7 @@ static IJKFF_Pipenode *func_open_video_decoder(IJKFF_Pipeline *pipeline, FFPlaye
 
 关于ffp->mediacodec_all_videos 、ffp->mediacodec_avc 、ffp->mediacodec_hevc 、ffp->mediacodec_mpeg2它们的值需要在起播前通过如下方法配置：
 
-```php
+```c
 ijkmp_set_option_int(_mediaPlayer, IJKMP_OPT_CATEGORY_PLAYER,   "xxxxx", 1);
 ```
 
@@ -238,7 +238,7 @@ video的解码线程为video_thread，audio的解码线程为audio_thread。
 
 - 视频解码线程
 
-```php
+```c
 static int video_thread(void *arg)
 {
     FFPlayer *ffp = (FFPlayer *)arg;
@@ -253,7 +253,7 @@ static int video_thread(void *arg)
 
 `ffpipenode_run_sync` 中调用的是IJKFF_Pipenode对象中的 `func_run_sync`：
 
-```php
+```c
 int ffpipenode_run_sync(IJKFF_Pipenode *node)
 {
     return node->func_run_sync(node);
@@ -262,7 +262,7 @@ int ffpipenode_run_sync(IJKFF_Pipenode *node)
 
 `func_run_sync` 取决于播放前配置的软硬解，假设为**硬解**，`func_run_sync`函数指针最后指向的是ffpipenode_android_mediacodec_vdec.c中的`func_run_sync`，其定义如下：
 
-```php
+```c
 static int func_run_sync(IJKFF_Pipenode *node)
 {
     .......
@@ -289,7 +289,7 @@ static int func_run_sync(IJKFF_Pipenode *node)
 
 1. 首先该函数启动一个输入线程，线程的执行函数为enqueue_thread_func，函定义如下:
 
-```php
+```c
 static int enqueue_thread_func(void *arg)
 {
     ......
@@ -311,7 +311,7 @@ static int enqueue_thread_func(void *arg)
 
 若为**软解**，`func_run_sync`函数指针最后指向的是ffpipenode_ffplay_vdec.c中的func_run_sync，其定义如下：
 
-```php
+```c
 static int func_run_sync(IJKFF_Pipenode *node)
 {
     IJKFF_Pipenode_Opaque *opaque = node->opaque;
@@ -331,7 +331,7 @@ static int ffplay_video_thread(void *arg) {
 
 ijkplayer的音频解码线程的入口函数是ff_ffplayer.c中的`audio_thread()`：
 
-```php
+```c
 static int audio_thread(void *arg)
 {
 .....
@@ -372,13 +372,13 @@ ijkplayer中Android平台使用OpenSL ES或AudioTrack输出音频，iOS平台使
 
 audio output节点，在ffp_prepare_async_l方法中被创建：
 
-```php
+```c
 ffp->aout = ffpipeline_open_audio_output(ffp->pipeline, ffp);
 ```
 
 `ffpipeline_open_audio_output`方法实际上调用的是IJKFF_Pipeline对象的函数指针`func_open_audio_utput`，该函数指针在初始化中的`ijkmp_android_create`方法中被赋值，最后指向的是ffpipeline_android.c中的函数`func_open_audio_output`：
 
-```php
+```c
 static SDL_Aout *func_open_audio_output(IJKFF_Pipeline *pipeline, FFPlayer *ffp)
 {
     SDL_Aout *aout = NULL;
@@ -397,7 +397,7 @@ static SDL_Aout *func_open_audio_output(IJKFF_Pipeline *pipeline, FFPlayer *ffp)
 
 `SDL_AoutAndroid_CreateForOpenSLES`定义如下，主要完成的是创建SDL_Aout对象：
 
-```php
+```c
 SDL_Aout *SDL_AoutAndroid_CreateForOpenSLES()
 {
     SDLTRACE("%s\n", __func__);
@@ -451,7 +451,7 @@ fail:
 
 回到ffplay.c中，如果发现待播放的文件中含有音频，那么在调用 `stream_component_open` 打开解码器时，该方法里面也调用 `audio_open` 打开了audio output设备。
 
-```php
+```c
 static int audio_open(FFPlayer *opaque, int64_t wanted_channel_layout, int wanted_nb_channels, int wanted_sample_rate, struct AudioParams *audio_hw_params)
 {
     FFPlayer *ffp = opaque;
@@ -476,7 +476,7 @@ static int audio_open(FFPlayer *opaque, int64_t wanted_channel_layout, int wante
 
 在 audio_open中配置了音频输出的相关参数 SDL_AudioSpec ，并通过
 
-```php
+```c
 int SDL_AoutOpenAudio(SDL_Aout *aout, const SDL_AudioSpec *desired, SDL_AudioSpec *obtained)
 {
     if (aout && desired && aout->open_audio)
@@ -491,7 +491,7 @@ int SDL_AoutOpenAudio(SDL_Aout *aout, const SDL_AudioSpec *desired, SDL_AudioSpe
 
 若Android平台上采用OpenGL渲染解码后的YUV图像，渲染线程为video_refresh_thread，最后渲染图像的方法为video_image_display2，定义如下：
 
-```php
+```c
 static void video_image_display2(FFPlayer *ffp)
 {
     VideoState *is = ffp->is;
@@ -517,7 +517,7 @@ static void video_image_display2(FFPlayer *ffp)
 
 ijkplayer在默认情况下也是使用音频作为参考时钟源，处理同步的过程主要在视频渲染`video_refresh_thread`的线程中：
 
-```php
+```c
 static int video_refresh_thread(void *arg)
 {
     FFPlayer *ffp = arg;
@@ -542,7 +542,7 @@ static int video_refresh_thread(void *arg)
 
 可见同步的重点是在`video_refresh`中，下面着重分析该方法：
 
-```php
+```c
 lastvp = frame_queue_peek_last(&is->pictq);
 vp = frame_queue_peek(&is->pictq);
 ......
@@ -553,7 +553,7 @@ delay = compute_target_delay(ffp, last_duration, is);
 
 lastvp是上一帧，vp是当前帧，last_duration则是根据当前帧和上一帧的pts，计算出来上一帧的显示时间，经过 `compute_target_delay` 方法，计算出显示当前帧需要等待的时间。
 
-```php
+```c
 static double compute_target_delay(FFPlayer *ffp, double delay, VideoState *is)
 {
     double sync_threshold, diff = 0;
@@ -591,7 +591,7 @@ static double compute_target_delay(FFPlayer *ffp, double delay, VideoState *is)
 
 回到video_refresh中：
 
-```php
+```c
 time= av_gettime_relative()/1000000.0;
 if (isnan(is->frame_timer) || time < is->frame_timer)
   is->frame_timer = time;
@@ -604,7 +604,7 @@ if (time < is->frame_timer + delay) {
 
 frame_timer实际上就是上一帧的播放时间，而frame_timer + delay实际上就是当前这一帧的播放时间，如果系统时间还没有到当前这一帧的播放时间，直接跳转至display，而此时is->force_refresh变量为0，不显示当前帧，进入`video_refresh_thread`中下一次循环，并睡眠等待。
 
-```php
+```c
 is->frame_timer += delay;
   if (delay > 0 && time - is->frame_timer > AV_SYNC_THRESHOLD_MAX)
       is->frame_timer = time;
@@ -626,7 +626,7 @@ is->frame_timer += delay;
 
 如果当前这一帧的播放时间已经过了，并且其和当前系统时间的差值超过了AV_SYNC_THRESHOLD_MAX，则将当前这一帧的播放时间改为系统时间，并在后续判断是否需要丢帧，其目的是为后面帧的播放时间重新调整frame_timer，如果缓冲区中有更多的数据，并且当前的时间已经大于当前帧的持续显示时间，则丢弃当前帧，尝试显示下一帧。
 
-```php
+```c
 {
    frame_queue_next(&is->pictq);
    is->force_refresh = 1;
@@ -647,7 +647,7 @@ display:
 
 在播放过程中，某些行为的完成或者变化，如prepare完成，开始渲染等，需要以事件形式通知到外部，以便上层作出具体的业务处理。ijkplayer支持的事件比较多，具体定义在ijkplayer/ijkmedia/ijkplayer/ff_ffmsg.h中
 
-```php
+```c
 #define FFP_MSG_FLUSH                       0
 #define FFP_MSG_ERROR                       100     /* arg1 = error */
 #define FFP_MSG_PREPARED                    200
@@ -672,7 +672,7 @@ display:
 
 在IJKMediaPlayer的初始化方法中:
 
-```php
+```c
 static void
 IjkMediaPlayer_native_setup(JNIEnv *env, jobject thiz, jobject weak_this)
 {
@@ -684,7 +684,7 @@ IjkMediaPlayer_native_setup(JNIEnv *env, jobject thiz, jobject weak_this)
 
 可以看到在创建播放器时， `message_loop` 函数地址作为参数传入了 `ijkmp_android_create` ，继续跟踪代码，可以发现，该函数地址最终被赋值给了IjkMediaPlayer中的 `msg_loop` 函数指针：
 
-```php
+```c
 IjkMediaPlayer *ijkmp_create(int (*msg_loop)(void*))
 {
     ......
@@ -695,7 +695,7 @@ IjkMediaPlayer *ijkmp_create(int (*msg_loop)(void*))
 
 开始播放时，会启动一个消息线程：
 
-```php
+```c
 static int ijkmp_prepare_async_l(IjkMediaPlayer *mp)
 {
     ......
@@ -724,7 +724,7 @@ ijkplayer中的音频是走的软解，后续提到的解码无特别说明都�
 
 **ffpipeline**定义如下：
 
-```php
+```c
 struct IJKFF_Pipeline {
     SDL_Class             *opaque_class;
     IJKFF_Pipeline_Opaque *opaque;
@@ -750,7 +750,7 @@ ijkplayer中的音频是软解码的，所以不需要像视频一样去作封�
 
 **ffpipenode**定义如下：
 
-```php
+```c
 struct IJKFF_Pipenode {
     SDL_mutex *mutex;
     void *opaque;
@@ -769,7 +769,7 @@ IJKFF_Pipenode中的主要函数是：
 
 解码封装层的源码文件及目录结构如下：
 
-```php
+```c
 // +表示目录，目录下文件递进4个空格，-表示文件
 +ijkmedia/ijkplayer
     -ff_ffpipenode.c/h                          //pipeline定义与封装
@@ -795,7 +795,7 @@ IJKFF_Pipenode中的主要函数是：
 
 首先需要创建pipeline，pipeline的创建流程和SDL_Vout一样：
 
-```php
+```c
 new IjkMediaPlayer() 
     -> initPlayer() 
         -> native_setup() 
@@ -807,7 +807,7 @@ new IjkMediaPlayer()
 
 接着在ff_ffplay中创建解码器(pipenode)：
 
-```php
+```c
 static int stream_component_open(FFPlayer *ffp, int stream_index)
 {
     //……
@@ -836,7 +836,7 @@ static int stream_component_open(FFPlayer *ffp, int stream_index)
 
 `video_thread`的实现很简单：
 
-```php
+```c
 static int video_thread(void *arg)
 {
     FFPlayer *ffp = (FFPlayer *)arg;
@@ -879,7 +879,7 @@ static int video_thread(void *arg)
 
 在解码的过程中，需要将已经解码好的帧放入帧队列FrameQueue中。该工作由ff_ffplay中的ffp_queue_picture/queue_picture完成。
 
-```php
+```c
 int ffp_queue_picture(FFPlayer *ffp, AVFrame *src_frame, double pts, double duration, int64_t pos, int serial)
 {
     return queue_picture(ffp, src_frame, pts, duration, pos, serial);
@@ -899,7 +899,7 @@ static int queue_picture(FFPlayer *ffp, AVFrame *src_frame, double pts, double d
 
 seek时需要调用解码器的flush：
 
-```php
+```c
 static int read_thread(void *arg)
 {
     //……
@@ -929,7 +929,7 @@ static int read_thread(void *arg)
 
 正常流程只在整个播放器销毁时有调用到：
 
-```php
+```c
 void ffp_destroy(FFPlayer *ffp)
 {
     //……
@@ -951,7 +951,7 @@ void ffp_destroy(FFPlayer *ffp)
 
 硬解pipenode的创建是在`stream_component_open`中调用`ffpipeline_open_video_decoder`创建的。`ffpipeline_open_video_decoder`是pipeline的封装，在Android上调用的是ffpipeline_andriod.c中的`func_open_video_decoder`：
 
-```php
+```c
 static IJKFF_Pipenode *func_open_video_decoder(IJKFF_Pipeline *pipeline, FFPlayer *ffp)
 {
     IJKFF_Pipeline_Opaque *opaque = pipeline->opaque;
@@ -967,7 +967,7 @@ static IJKFF_Pipenode *func_open_video_decoder(IJKFF_Pipeline *pipeline, FFPlaye
 
 这里启用了硬解会调用`ffpipenode_create_video_decoder_from_android_mediacodec`：
 
-```php
+```c
 IJKFF_Pipenode *ffpipenode_create_video_decoder_from_android_mediacodec(FFPlayer *ffp, IJKFF_Pipeline *pipeline, SDL_Vout *vout)
 {
     //……
@@ -1028,7 +1028,7 @@ IJKFF_Pipenode *ffpipenode_create_video_decoder_from_android_mediacodec(FFPlayer
 
 接下来看下`reconfigure_codec_l`：
 
-```php
+```c
 static int reconfigure_codec_l(JNIEnv *env, IJKFF_Pipenode *node, jobject new_surface)
 {
     //……
@@ -1054,7 +1054,7 @@ reconfigure的主要流程与java api的使用差不多。典型的`new -> setSu
 
 在ffpipenode_android_mediacodec_vdec中有两个fun_run_sync的实现，可以通过mediacodec_sync选项进行切换：
 
-```php
+```c
 //ffpipenode_create_video_decoder_from_android_mediacodec
     if (ffp->mediacodec_sync) {
         node->func_run_sync = func_run_sync_loop;
@@ -1065,7 +1065,7 @@ reconfigure的主要流程与java api的使用差不多。典型的`new -> setSu
 
 默认使用的是`func_run_sync`:
 
-```php
+```c
 static int func_run_sync(IJKFF_Pipenode *node)
 {
     //……
@@ -1110,7 +1110,7 @@ static int func_run_sync(IJKFF_Pipenode *node)
 
 在分析`drain_output_buffer`前先看下`enqueue_thread_func`：
 
-```php
+```c
 static int enqueue_thread_func(void *arg)
 {
     while (!q->abort_request && !opaque->abort) {
@@ -1137,7 +1137,7 @@ fail:
 
 **feed_input_buffer**
 
-```php
+```c
 static int feed_input_buffer(JNIEnv *env, IJKFF_Pipenode *node, int64_t timeUs, int *enqueue_count)
 {
     //……
@@ -1203,7 +1203,7 @@ static int feed_input_buffer(JNIEnv *env, IJKFF_Pipenode *node, int64_t timeUs, 
 
 **drain_output_buffer**
 
-```php
+```c
 //drain_output_buffer = lock(opaque->acodec_mutex) + drain_output_buffer_l + unlock(opaque->acodec_mutex)
 static int drain_output_buffer_l(JNIEnv *env, IJKFF_Pipenode *node, int64_t timeUs, int *dequeue_count, AVFrame *frame, int *got_frame)
 {
@@ -1251,7 +1251,7 @@ fail:
 
 对于MediaCodec而言，`vout->create_overlay`会调用到ijksdl_vout_overlay_android_mediacodec.c中的`SDL_VoutAMediaCodec_CreateOverlay`，这个函数中关键的几行是：
 
-```php
+```c
 SDL_VoutOverlay_Opaque *opaque = overlay->opaque;
 opaque->buffer_proxy  = NULL;
 overlay->opaque_class = &g_vout_overlay_amediacodec_class;
@@ -1264,7 +1264,7 @@ overlay->format       = SDL_FCC__AMC;
 
 对于`overlay->func_fill_frame`会调用到ijksdl_vout_overlay_android_mediacodec.c中的`func_fill_frame`，这个函数中关键的几行是：
 
-```php
+```c
 opaque->buffer_proxy = (SDL_AMediaCodecBufferProxy *)frame->opaque;
 overlay->opaque_class = &g_vout_overlay_amediacodec_class;
 overlay->format     = SDL_FCC__AMC;
@@ -1278,7 +1278,7 @@ overlay->h = (int)frame->height;
 
 软解的pipenode定义在ffpipenode_ffplay_vdec.h/c中。通过函数`ffpipenode_create_video_decoder_from_ffplay`来创建一个软解码器。不过ijkplayer中ffplay pipenode并不是由ffplay pipeline创建，而是由android pipeline创建：
 
-```php
+```c
 //ffpipeline_android.c
 static IJKFF_Pipenode *func_open_video_decoder(IJKFF_Pipeline *pipeline, FFPlayer *ffp)
 {
@@ -1299,7 +1299,7 @@ static IJKFF_Pipenode *func_open_video_decoder(IJKFF_Pipeline *pipeline, FFPlaye
 
 `ffpipenode_create_video_decoder_from_ffplay`定义如下：
 
-```php
+```c
 IJKFF_Pipenode *ffpipenode_create_video_decoder_from_ffplay(FFPlayer *ffp)
 {
     IJKFF_Pipenode *node = ffpipenode_alloc(sizeof(IJKFF_Pipenode_Opaque));
@@ -1320,7 +1320,7 @@ IJKFF_Pipenode *ffpipenode_create_video_decoder_from_ffplay(FFPlayer *ffp)
 
 软解的关键实现在`func_run_sync`:
 
-```php
+```c
 static int func_run_sync(IJKFF_Pipenode *node)
 {
     IJKFF_Pipenode_Opaque *opaque = node->opaque;
@@ -1339,7 +1339,7 @@ int ffp_video_thread(FFPlayer *ffp)
 
 软解与ffplay有所不同的地方在于`queue_picture`(将解码帧放入FrameQueue中)：
 
-```php
+```c
 static int queue_picture(FFPlayer *ffp, AVFrame *src_frame, double pts, double duration, int64_t pos, int serial)
 {
     //……
@@ -1403,7 +1403,7 @@ static int queue_picture(FFPlayer *ffp, AVFrame *src_frame, double pts, double d
 
 正常情况下`vp->bmp`创建一次后可重复使用，不需要重新创建。只有格式变化后，才需要调用`alloc_picture`重新创建。
 
-```php
+```c
 static void alloc_picture(FFPlayer *ffp, int frame_format)
 {
     //……
@@ -1425,7 +1425,7 @@ static void alloc_picture(FFPlayer *ffp, int frame_format)
 
 `alloc_picture`主要是通过调用SDL_Vout的接口，根据frame_format来创建一个Overlay。在[ijkplayer video显示分析](https://zhuanlan.zhihu.com/p/45237178)中分析过对于android默认通过`SDL_VoutAndroid_CreateForAndroidSurface`创建vout。该vout实现对应的overlay创建函数是：
 
-```php
+```c
 //SDL_LockMutex(vout->mutex);
 static SDL_VoutOverlay *func_create_overlay_l(int width, int height, int frame_format, SDL_Vout *vout)
 {
@@ -1445,7 +1445,7 @@ static SDL_VoutOverlay *func_create_overlay_l(int width, int height, int frame_f
 
 overlay的填充是调用的`SDL_VoutFillFrameYUVOverlay`，即`overlay->func_fill_frame`。对于软解调用的是ijksdl_vout_overlay_ffmpeg中的`func_fill_frame`。
 
-```php
+```c
 static int func_fill_frame(SDL_VoutOverlay *overlay, const AVFrame *frame)
 {
     //……
@@ -1531,7 +1531,7 @@ ffplay基于sdl显示图像，ijkplayer在显示上摒弃了sdl，而是另辟�
 
 还是从显示函数开始看起(ff_ffplay.c)：
 
-```php
+```c
 stream_open -> SDL_CreateThreadEx video_refresh_thread
     ->video_refresh
         ->video_display2
@@ -1541,7 +1541,7 @@ stream_open -> SDL_CreateThreadEx video_refresh_thread
 
 整个调用链和ffplay保持一致，只是显示线程从主线程改变了，到了一个独立线程中。最后在显示一帧图像的时候调用的是`SDL_VoutDisplayYUVOverlay`：
 
-```php
+```c
 int SDL_VoutDisplayYUVOverlay(SDL_Vout *vout, SDL_VoutOverlay *overlay)
 {
     if (vout && overlay && vout->display_overlay)
@@ -1561,7 +1561,7 @@ ijk中使用SDL_Vout表示一个显示上下文，或者理解为一块画布，
 
 SDL_Vout的定义如下：
 
-```php
+```c
 struct SDL_Vout {
     SDL_mutex *mutex;
     SDL_Class       *opaque_class;
@@ -1585,7 +1585,7 @@ struct SDL_Vout {
 
 SDL_VoutOverlay的定义如下：
 
-```php
+```c
 struct SDL_VoutOverlay {
     int w; /**< Read-only */
     int h; /**< Read-only */
@@ -1622,7 +1622,7 @@ struct SDL_VoutOverlay {
 
 上面提到的一些结构体和函数，都在目录ijkmedia/ijksdl/下：
 
-```php
+```c
 + ijkmedia/ijksdl
     - ijk_sdl.h                             //包含其他sdl头文件
     - ijksdl_vout.h/c                       //封装层，提供SDL_VoutXXX的函数调用vout和overlay
@@ -1644,7 +1644,7 @@ Android上的SDL_Vout是通过ijksdl_vout_android_surface.c中的`SDL_VoutAndroi
 
 `SDL_VoutAndroid_CreateForAndroidSurface`调用流程如下：
 
-```php
+```c
 new IjkMediaPlayer() 
     -> initPlayer() 
         -> native_setup() 
@@ -1657,7 +1657,7 @@ new IjkMediaPlayer()
 
 前面分析了overlay的显示是在video_display2中调用`SDL_VoutDisplayYUVOverlay`显示的。`SDL_VoutDisplayYUVOverlay`只是封装了具体SDL_Vout实现类的`display_overlay`方法。对于Android，对应的是ijksdl_vout_android_nativewindow.c中的`func_display_overlay`：
 
-```php
+```c
 static int func_display_overlay(SDL_Vout *vout, SDL_VoutOverlay *overlay)
 {
     SDL_LockMutex(vout->mutex);
@@ -1669,7 +1669,7 @@ static int func_display_overlay(SDL_Vout *vout, SDL_VoutOverlay *overlay)
 
 加锁调用`func_display_overlay_l`(精简了代码，直接看正常流程代码)：
 
-```php
+```c
 static int func_display_overlay_l(SDL_Vout *vout, SDL_VoutOverlay *overlay)
 {
     switch(overlay->format) {
@@ -1714,7 +1714,7 @@ static int func_display_overlay_l(SDL_Vout *vout, SDL_VoutOverlay *overlay)
 
 MediaCodec是Android硬解的统一API，方便了不同芯片厂商接入。MediaCodec解码时设置一个Surface以减少显示时的数据拷贝，可以提高效率。此时解码后拿到的是一个index，并非解码后的图像数据，ijk中将其封装为`SDL_AMediaCodecBufferProxy`，定义在jksdl_vout_android_nativewindow.c中：
 
-```php
+```c
 struct SDL_AMediaCodecBufferProxy
 {
     int buffer_id;
@@ -1726,7 +1726,7 @@ struct SDL_AMediaCodecBufferProxy
 
 SDL_AMediaCodecBufferProxy的实例在android overlay的SDL_VoutOverlay_Opaque中定义：
 
-```php
+```c
 typedef struct SDL_VoutOverlay_Opaque {
     SDL_mutex *mutex;
 
@@ -1745,7 +1745,7 @@ MediaCodec要显示一帧，是通过调用`releaseOutputBuffer`通知MediaCodec
 
 回到刚才的思路，看下`SDL_VoutOverlayAMediaCodec_releaseFrame_l`函数：
 
-```php
+```c
 int  SDL_VoutOverlayAMediaCodec_releaseFrame_l(SDL_VoutOverlay *overlay, SDL_AMediaCodec *acodec, bool render)
 {
     if (!check_object(overlay, __func__))
@@ -1758,7 +1758,7 @@ int  SDL_VoutOverlayAMediaCodec_releaseFrame_l(SDL_VoutOverlay *overlay, SDL_AMe
 
 `SDL_VoutAndroid_releaseBufferProxyP_l`调用了`SDL_VoutAndroid_releaseBufferProxy_l`：
 
-```php
+```c
 //这里省略了打印调试信息的代码
 static int SDL_VoutAndroid_releaseBufferProxy_l(SDL_Vout *vout, SDL_AMediaCodecBufferProxy *proxy, bool render)
 {
@@ -1808,7 +1808,7 @@ ijkplayer在Android上的的音频输出支持opensles和AudioTrack。
 
 音频输出被抽象为SDL_Aout:
 
-```php
+```c
 struct SDL_Aout {
 //……
     SDL_Class       *opaque_class;
@@ -1831,7 +1831,7 @@ struct IJKFF_Pipeline {
 
 android上ffpipeline_android.c根据选项opensles创建具体的SDL_Aout：
 
-```php
+```c
 static SDL_Aout *func_open_audio_output(IJKFF_Pipeline *pipeline, FFPlayer *ffp)
 {
     SDL_Aout *aout = NULL;
@@ -1848,7 +1848,7 @@ static SDL_Aout *func_open_audio_output(IJKFF_Pipeline *pipeline, FFPlayer *ffp)
 
 和SDL_Aout相关的目录结构如下：
 
-```php
+```c
 +ijkmedia/ijkplayer
     -ff_ffpipeline.h/c              //pipeline实现
     +android/pipeline
@@ -1867,7 +1867,7 @@ static SDL_Aout *func_open_audio_output(IJKFF_Pipeline *pipeline, FFPlayer *ffp)
 
 AudioTrack输出实现的SDL_Aout在文件ijksdl_aout_android_audiotrack.h/c中。AudioTrack aout的主要实现是一个循环线程`aout_thread_n`，该线程在`aout_open_audio`中创建。其他操作都是通过变量的改变来通知循环线程生效的，比如flush：
 
-```php
+```c
 static void aout_flush_audio(SDL_Aout *aout)
 {
     SDL_Aout_Opaque *opaque = aout->opaque;
@@ -1883,7 +1883,7 @@ static void aout_flush_audio(SDL_Aout *aout)
 
 接下来就看下`aout_thread_n`的实现：
 
-```php
+```c
 static int aout_thread_n(JNIEnv *env, SDL_Aout *aout)
 {
     SDL_AudioCallback audio_cblk = opaque->spec.callback;//这就是ff_ffplay的sdl_audio_callback
@@ -1976,7 +1976,7 @@ AVPlayerItem：管理资源对象，提供播放数据源。
 
 item_read_thread：
 
-```php
+```c
 static int item_read_thread(void * context)
 {
 		......
