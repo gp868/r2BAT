@@ -1,3 +1,3 @@
 - 关注我
-  - [Github](https://github.com/CARLOSGP2021)
+  - [Github](https://github.com/gp868)
   - [公众号](https://gcore.jsdelivr.net/gh/gp868/myFigures/img/202205282027513.gif)
