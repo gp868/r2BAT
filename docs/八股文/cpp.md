@@ -2549,100 +2549,123 @@ void quickSort(vector<int> &nums, int left, int right) {
 2. 将顶端的数与末尾的数交换，此时，末尾的数为最大值，剩余待排序数组个数为n-1
 3. 将剩余的n-1个数再构造成大根堆，再将顶端数与n-1位置的数交换，如此反复执行，便能得到有序数组
 
-代码：
+```c
+#include <iostream>
+using namespace std;
 
-```c++
-//index是第一个非叶子节点的下标（根节点）
-//递归的方式构建
-void Build_Heap(int a[],int length,int index){
-	int left = 2 * index + 1;  //index的左子节点
-	int right = 2 * index + 2;//index的右子节点
-	int maxNode = index; //默认当前节点是最大值，当前节点index
-	if (left<length&&a[left]>a[maxNode]) {
-		maxNode = left;
-	}
-	if (right<length&&a[right]>a[maxNode]) {
-		maxNode = right;
-	}
-	if (maxNode!=index) {
-		int temp = a[maxNode];
-		a[maxNode] = a[index];
-		a[index] = temp;
-		Build_Heap(a,length,maxNode);
-	}
+// 堆调整
+void heapify(int arr[], int n, int i){
+    int largest = i; // 初始化最大元素为根节点
+    int left = 2 * i + 1; // 左子节点
+    int right = 2 * i + 2; // 右子节点
 
+    // 如果左子节点比根节点大，则将最大元素设为左子节点
+    if (left < n && arr[left] > arr[largest])
+        largest = left;
+
+    // 如果右子节点比根节点大，则将最大元素设为右子节点
+    if (right < n && arr[right] > arr[largest])
+        largest = right;
+
+    // 如果最大元素不是根节点，则交换根节点和最大元素
+    if (largest != i) {
+        swap(arr[i], arr[largest]);
+        heapify(arr, n, largest);
+    }
 }
-void Heap_Sort(int a[],int length) {
-    // 构建大根堆（从最后一个非叶子节点向上）
-    //注意，最后一个非叶子节点为(length / 2) - 1
-	for (int i = (length / 2) - 1;i >= 0;i--) {
-		Build_Heap(a, length, i);
-	}
-	for (int i = length - 1;i >= 1;i--) {
-		//交换刚建好的大顶堆的堆顶和堆末尾节点的元素值，
-		int temp = a[i];
-		a[i] = a[0];
-		a[0] = temp;
-		//交换过得值不变，剩下的重新排序成大顶堆
-		Build_Heap(a,i,0);
-	} 
+
+// 堆排序
+void heapSort(int arr[], int n){
+    // 构建最大堆
+    for (int i = n / 2 - 1; i >= 0; i--)
+        heapify(arr, n, i);
+
+    // 依次将堆顶元素（最大值）放到数组尾部
+    for (int i = n - 1; i > 0; i--) {
+        swap(arr[0], arr[i]); // 将堆顶元素（最大值）与当前元素交换
+        heapify(arr, i, 0); // 对剩下的元素重新构建最大堆
+    }
+}
+
+int main() {
+    int arr[] = { 12, 11, 13, 5, 6, 7 };
+    int n = sizeof(arr) / sizeof(arr[0]);
+
+    heapSort(arr, n);
+
+    cout << "排序后的数组：\n";
+    for (int i = 0; i < n; i++)
+        cout << arr[i] << " ";
+    cout << endl;
+    return 0;
 }
 ```
+
+在堆排序中，首先构建一个最大堆，然后将堆顶元素（即最大值）与数组的最后一个元素交换，然后对剩余的元素重新构建最大堆。重复这个过程，直到所有元素都排好序。在上面的代码中，heapify()函数用于将一个子树调整为最大堆，heapSort()函数用于对整个数组进行堆排序。
 
 ## 归并排序(nlogn)
 
 思路：分治思想，将若干个已经排好序的子序合成有序的序列。
 
-图解：
-
 ![](https://gcore.jsdelivr.net/gh/luogou/cloudimg/data/20210829134401.jpeg)
 
-代码：
+以下是注释详细的C++实现归并排序的代码：
 
-```c++
-//分治思想，先逐步分解成最小(递归)再合并
-//归并
-void Merge(int a[],int low,int mid,int high) {
-	int i = low;
-	int j = mid + 1;
-	int k = 0;
-	int *temp = new int[high - low + 1];
-	while (i<=mid&&j<=high) {
-		if (a[i]<=a[j]) {
-			temp[k++] = a[i++];
-		}
-		else {
-			temp[k++] = a[j++];
-		}
-	}//while (i<mid&&j<=high)
-	while (i<=mid) {
-		temp[k++] = a[i++];
-	}
-	while (j<=high) {
-		temp[k++] = a[j++];
-	}
-	for (i = low, k = 0;i <= high;i++, k++) {
-		a[i] = temp[k];
-	}
-	delete[] temp;
- }
-//递归分开
-void Merge_Sort(int a[], int low, int high) {
-	if (low < high) {
-		int mid = (low + high) / 2;
-		Merge_Sort(a, low, mid);
-		Merge_Sort(a, mid + 1, high);
-		cout << "mid=" << mid <<" " <<a[mid]<< endl;
-		cout << "low=" << low << " " << a[low] << endl;
-		cout << "high=" << high << " " << a[high] << endl;
-		cout << endl;
-		//递归之后再合并
-		Merge(a, low, mid, high);
-	}
+```c
+#include <iostream>
+#include <algorithm>
+using namespace std;
+
+// 合并两个有序数组
+void merge(int arr1[], int n1, int arr2[], int n2, int arr[]){
+    int i = 0, j = 0, k = 0;
+    // 比较两个数组的元素，将较小的元素添加到arr数组中
+    while (i < n1 && j < n2) {
+        if (arr1[i] <= arr2[j]) arr[k++] = arr1[i++];
+        else arr[k++] = arr2[j++];
+    }
+    // 将剩余元素添加到arr数组中
+    while (i < n1) arr[k++] = arr1[i++];
+    while (j < n2) arr[k++] = arr2[j++];
+}
+
+// 归并排序
+void mergeSort(int arr[], int n){
+    // 递归结束条件：数组长度为1
+    if (n <= 1) return;
+
+    int mid = n / 2;
+    int left[mid], right[n - mid];
+    // 将数组分成两部分
+    for (int i = 0; i < mid; i++) left[i] = arr[i];
+    for (int i = mid; i < n; i++) right[i - mid] = arr[i];
+
+    // 递归对左右两部分进行归并排序
+    mergeSort(left, mid);
+    mergeSort(right, n - mid);
+
+    // 将左右两部分合并
+    merge(left, mid, right, n - mid, arr);
+}
+
+int main() {
+    int arr[] = { 12, 11, 13, 5, 6, 7 };
+    int n = sizeof(arr) / sizeof(arr[0]);
+
+    // 对数组进行归并排序
+    mergeSort(arr, n);
+
+    // 输出排序后的数组
+    cout << "排序后的数组：\n";
+    for (int i = 0; i < n; i++) cout << arr[i] << " ";
+    cout << endl;
+    return 0;
 }
 ```
 
-代码看不懂没关系，[参考链接](https://blog.csdn.net/a130737/article/details/38228369)
+这个版本的归并排序使用了递归的方式实现。在归并排序中，将一个数组分成两个部分，对每个部分进行递归排序，然后将它们归并在一起。其中，merge()函数用于将两个有序数组合并到一起，mergeSort()函数用于对整个数组进行归并排序。这个版本的代码更加简洁，去掉了一些不必要的空格和换行符。
+
+
 
 ## 计数排序O(n+k)
 
