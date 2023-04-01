@@ -2418,7 +2418,7 @@ void bubbleSort(int arr[], int n) {
 }
 
 int main() {
-    int arr[] = { 64, 34, 25, 12, 22, 11, 90 };
+    int arr[] = {3, 7, 2, 9, 1, 8, 6, 5, 4};
     int n = sizeof(arr) / sizeof(arr[0]);
 
     // 对数组进行冒泡排序
@@ -2507,9 +2507,13 @@ void shellsort3(int a[], int n)
 
 ## 快速排序O(nlogn)
 
-思路：快排的核心叫做“基准值“，小于基准值的放在左边，大于基准值的放在右边。然后依次递归。基准值的选取随机的，一般选择数组的第一个或者数组的最后一个，然后又两个指针low和high
+快速排序是一种常用的排序算法，其基本思想是通过一趟排序将待排序序列分割成独立的两部分，其中一部分的所有元素均比另一部分的所有元素小，然后再对这两部分分别进行快速排序，最终将整个序列排序。
 
-图解：基准值就是第一个元素
+具体来说，快速排序的实现过程如下：
+
+1. 选取一个基准元素，通常是待排序序列的第一个元素。
+2. 将序列中所有比基准元素小的元素移到基准元素左边，所有比基准元素大的元素移到基准元素右边。这个过程称为分区（partition）。
+3. 对基准元素左右两个子序列分别进行快速排序。
 
 ![](https://gcore.jsdelivr.net/gh/luogou/cloudimg/data/20210829100212.png)
 
@@ -2519,41 +2523,53 @@ void shellsort3(int a[], int n)
 
 ![](https://gcore.jsdelivr.net/gh/luogou/cloudimg/data/20210829100307.png)
 
-1）设置两个变量I、J，排序开始的时候：I=0，J=N-1；
 
-2）以第一个数组元素作为关键数据，赋值给 key ，即  key =A[0]；
-
-3）从J开始向前搜索，即由后开始向前搜索（J=J-1即J--），找到第一个小于 key 的值A[j]，A[j]与A[i]交换；
-
-4）从I开始向后搜索，即由前开始向后搜索（I=I+1即I++），找到第一个大于 key 的A[i]，A[i]与A[j]交换；
-
-5）重复第3、4、5步，直到 I=J； (3,4步是在程序中没找到时候j=j-1，i=i+1，直至找到为止。找到并交换的时候i， j指针位置不变。另外当i=j这过程一定正好是i+或j-完成的最后另循环结束。）
-
-代码：
 
 ```c
-void quickSort(vector<int> &nums, int left, int right) {
-    // 这样不用排了
-    if(left >= right) return;
+#include <iostream>
+#include <vector>
+using namespace std;
+
+void quickSort(vector<int> &nums, int left, int right)
+{
+    if (left >= right)
+        return;
     int i = left, j = right;
-    // pivot 默认第一个
-    int pivot = left;
-    while(i < j) {
-        while(i < j && nums[j] >= nums[pivot]) j--;
-        while(i < j && nums[i] <= nums[pivot]) i++;
+    int num = nums[left];
+    while (i < j)
+    {
+        while (i < j && nums[j] >= num)
+            j--;
+        while (i < j && nums[i] <= num)
+            i++;
         swap(nums[i], nums[j]);
     }
-    // 最后把pivot放到合适的位置
-    swap(nums[i], nums[pivot]);
-    // 第i个已经排好了
+    swap(nums[left], nums[i]);
     quickSort(nums, left, i - 1);
     quickSort(nums, i + 1, right);
 }
+
+int main()
+{
+    vector<int> nums = {3, 7, 2, 9, 1, 8, 6, 5, 4};
+    int n = nums.size();
+    quickSort(nums, 0, n - 1);
+    for (int num : nums)
+    {
+        cout << num << " ";
+    }
+    cout << endl;
+}
+
 ```
+
+快速排序的时间复杂度为O(nlogn)，空间复杂度为O(logn)。
 
 ## 堆排序O(nlogn)
 
-思路：堆是具有以下性质的完全二叉树：每个结点的值都大于或等于其左右孩子结点的值，称为大顶堆；或者每个结点的值都小于或等于其左右孩子结点的值，称为小顶堆。堆排序分为两步：首先将待排序序列构造成一个大顶堆，此时，整个序列的最大值就是堆顶的根节点。随后第二步将其与末尾元素进行交换，此时末尾就为最大值。然后将这个堆结构映射到数组中后，就会变成升序状态了。**（即升序—大根堆）**
+思路：堆是具有以下性质的完全二叉树：每个结点的值都大于或等于其左右孩子结点的值，称为大顶堆；或者每个结点的值都小于或等于其左右孩子结点的值，称为小顶堆。
+
+堆排序分为两步：首先将待排序序列构造成一个大顶堆，此时，整个序列的最大值就是堆顶的根节点。随后第二步将其与末尾元素进行交换，此时末尾就为最大值。然后将这个堆结构映射到数组中后，就会变成升序状态了。**（即升序—大根堆）**
 
 当数组元素映射成为堆时：
 
@@ -2573,51 +2589,58 @@ void quickSort(vector<int> &nums, int left, int right) {
 
 ```c
 #include <iostream>
+#include <vector>
+
 using namespace std;
 
 // 堆调整
-void heapify(int arr[], int n, int i){
-    int largest = i; // 初始化最大元素为根节点
-    int left = 2 * i + 1; // 左子节点
+void heapify(vector<int> &nums, int n, int i)
+{
+    int largest = i;       // 初始化最大元素为根节点
+    int left = 2 * i + 1;  // 左子节点
     int right = 2 * i + 2; // 右子节点
-
     // 如果左子节点比根节点大，则将最大元素设为左子节点
-    if (left < n && arr[left] > arr[largest])
+    if (left < n && nums[left] > nums[largest])
+    {
         largest = left;
-
+    }
     // 如果右子节点比根节点大，则将最大元素设为右子节点
-    if (right < n && arr[right] > arr[largest])
+    if (right < n && nums[right] > nums[largest])
+    {
         largest = right;
-
+    }
     // 如果最大元素不是根节点，则交换根节点和最大元素
-    if (largest != i) {
-        swap(arr[i], arr[largest]);
-        heapify(arr, n, largest);
+    if (largest != i)
+    {
+        swap(nums[i], nums[largest]);
+        heapify(nums, n, largest);
     }
 }
 
-// 堆排序
-void heapSort(int arr[], int n){
+void heapSort(vector<int> &nums, int n)
+{
     // 构建最大堆
     for (int i = n / 2 - 1; i >= 0; i--)
-        heapify(arr, n, i);
-
+    {
+        heapify(nums, n, i);
+    }
     // 依次将堆顶元素（最大值）放到数组尾部
-    for (int i = n - 1; i > 0; i--) {
-        swap(arr[0], arr[i]); // 将堆顶元素（最大值）与当前元素交换
-        heapify(arr, i, 0); // 对剩下的元素重新构建最大堆
+    for (int i = n - 1; i > 0; i--)
+    {
+        swap(nums[0], nums[i]); // 将堆顶元素（最大值）与当前元素交换
+        heapify(nums, i, 0);    // 对剩下的元素重新构建最大堆
     }
 }
 
-int main() {
-    int arr[] = { 12, 11, 13, 5, 6, 7 };
-    int n = sizeof(arr) / sizeof(arr[0]);
-
-    heapSort(arr, n);
-
-    cout << "排序后的数组：\n";
-    for (int i = 0; i < n; i++)
-        cout << arr[i] << " ";
+int main()
+{
+    vector<int> nums = {3, 7, 2, 9, 1, 8, 6, 5, 4};
+    int n = nums.size();
+    heapSort(nums, n);
+    for (int num : nums)
+    {
+        cout << num << " ";
+    }
     cout << endl;
     return 0;
 }
@@ -2671,7 +2694,7 @@ void mergeSort(int arr[], int n){
 }
 
 int main() {
-    int arr[] = { 12, 11, 13, 5, 6, 7 };
+    int arr[] = {3, 7, 2, 9, 1, 8, 6, 5, 4};
     int n = sizeof(arr) / sizeof(arr[0]);
 
     // 对数组进行归并排序
