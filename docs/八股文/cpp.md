@@ -2390,27 +2390,49 @@ void Straight_Insertion_Sort(int a[],int length){
 
 ## 冒泡排序O(n^2^)
 
-思路：两两比较元素，顺序不同就交换
+冒泡排序的核心是比较相邻两个元素的大小，如果它们的顺序不正确就交换它们的位置。为了实现这个过程，我们需要使用两个嵌套的for循环。
 
-图解：
+外层循环控制排序的轮数，也就是需要进行多少次比较。因为每一轮比较都会将当前未排序的最大元素移动到数组的末尾，所以每一轮比较都可以少比较一次。因此，循环次数是n-1次，其中n是数组的长度。
+
+内层循环控制每一轮比较的次数，也就是需要比较多少对相邻元素的大小。因为每一轮比较都会将当前未排序的最大元素移动到数组的末尾，所以每一轮比较可以少比较一次。因此，内层循环次数是n-i-1次，其中i是外层循环的迭代变量。
 
 ![](https://gcore.jsdelivr.net/gh/luogou/cloudimg/data/20210829093855.gif)
 
-代码：
+```c
+#include <iostream>
+using namespace std;
 
-```c++
-void Bubble_Sort(int a[],int length) {
-	for (int i = 0;i < length - 1;i++) {
-		for (int j = 0;j <length-i-1 ;j++) {
-			if (a[j]>a[j+1]) {
-				int temp = a[j];
-				a[j] = a[j +1];
-				a[j+1] = temp;
-			}
-		}
-	}
+void bubbleSort(int arr[], int n) {
+    // 外层循环控制排序的轮数
+    for (int i = 0; i < n - 1; i++) {
+        // 内层循环控制每一轮比较的次数
+        for (int j = 0; j < n - i - 1; j++) {
+            if (arr[j] > arr[j + 1]) {
+                // 交换相邻两个元素
+                int temp = arr[j];
+                arr[j] = arr[j + 1];
+                arr[j + 1] = temp;
+            }
+        }
+    }
+}
+
+int main() {
+    int arr[] = { 64, 34, 25, 12, 22, 11, 90 };
+    int n = sizeof(arr) / sizeof(arr[0]);
+
+    // 对数组进行冒泡排序
+    bubbleSort(arr, n);
+
+    // 输出排序后的数组
+    cout << "排序后的数组：\n";
+    for (int i = 0; i < n; i++) cout << arr[i] << " ";
+    cout << endl;
+    return 0;
 }
 ```
+
+这个版本的冒泡排序使用了两个嵌套循环来实现。外层循环控制排序的轮数，内层循环控制每一轮比较的次数。在每一轮比较中，如果相邻两个元素的顺序不正确，就交换它们的位置。这个简单的算法的时间复杂度为O(n^2)。
 
 ## 选择排序O(n^2^)
 
@@ -2509,7 +2531,7 @@ void shellsort3(int a[], int n)
 
 代码：
 
-```c++
+```c
 void quickSort(vector<int> &nums, int left, int right) {
     // 这样不用排了
     if(left >= right) return;
