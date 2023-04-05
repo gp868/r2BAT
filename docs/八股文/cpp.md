@@ -2565,6 +2565,105 @@ int main()
 
 快速排序的时间复杂度为O(nlogn)，空间复杂度为O(logn)。
 
+- 单链表快排
+
+下面是用C++实现单链表的快速排序的示例代码：
+
+```c
+#include <iostream>
+
+using namespace std;
+
+// 链表节点结构体
+struct ListNode {
+    int val;
+    ListNode* next;
+    ListNode(int x): val(x), next(nullptr) {}
+};
+
+// 快速排序函数
+ListNode* quickSortList(ListNode* head) {
+    if (head == nullptr || head->next == nullptr) {
+        return head;
+    }
+    // 将链表分成小于等于pivot和大于pivot两部分
+    ListNode* pivot = head; // 选择链表的第一个节点为pivot
+    ListNode* p = head->next;
+    ListNode* small = new ListNode(0); // 创建小于等于pivot的链表
+    ListNode* big = new ListNode(0); // 创建大于pivot的链表
+    ListNode* smallTail = small; // 小于等于pivot的链表的尾指针
+    ListNode* bigTail = big; // 大于pivot的链表的尾指针
+    while (p != nullptr) { // 遍历链表
+        if (p->val <= pivot->val) { // 如果节点值小于等于pivot，将其放入小于等于pivot的链表中
+            smallTail->next = p;
+            smallTail = smallTail->next;
+        } else { // 否则，将其放入大于pivot的链表中
+            bigTail->next = p;
+            bigTail = bigTail->next;
+        }
+        p = p->next;
+    }
+    // 递归排序左右两部分链表
+    smallTail->next = nullptr; // 将小于等于pivot的链表的尾指针指向空，表示链表结束
+    bigTail->next = nullptr; // 将大于pivot的链表的尾指针指向空，表示链表结束
+    ListNode* left = quickSortList(small->next); // 递归排序小于等于pivot的链表
+    ListNode* right = quickSortList(big->next); // 递归排序大于pivot的链表
+    // 合并左右两部分链表
+    ListNode* res = left; // 将排序后的小于等于pivot的链表作为结果
+    if (left == nullptr) { // 如果左边的链表为空，直接将pivot作为结果，并将右边的链表接到pivot后面
+        res = pivot;
+        pivot->next = right;
+    } else { // 否则，将pivot接到左边链表的尾部，并将右边的链表接到pivot后面
+        ListNode* tail = left;
+        while (tail->next != nullptr) {
+            tail = tail->next;
+        }
+        tail->next = pivot;
+        pivot->next = right;
+    }
+    delete small; // 释放小于等于pivot的链表的内存
+    delete big; // 释放大于pivot的链表的内存
+    return res; // 返回排序后的链表
+}
+
+// 打印链表内容
+void printList(ListNode* head) {
+    ListNode* p = head;
+    while (p != nullptr) { // 遍历链表
+        cout << p->val << " "; // 打印节点值
+        p = p->next;
+    }
+    cout << endl;
+}
+
+int main() {
+    // 创建链表
+    ListNode* head = new ListNode(3);
+    head->next = new ListNode(1);
+    head->next->next = new ListNode(4);
+    head->next->next->next = new ListNode(2);
+    head->next->next->next->next = new ListNode(5);
+    // 打印原始链表
+    cout << "Original list: ";
+    printList(head);
+    // 快速排序
+    ListNode* sortedHead = quickSortList(head);
+    // 打印排序后的链表
+    cout << "Sorted list: ";
+    printList(sortedHead);
+    return 0;
+}
+```
+
+上述代码中，我们首先定义了一个链表节点结构体`ListNode`，包含节点值`val`和指向下一个节点的指针`next`。然后，我们实现了一个快速排序函数`quickSortList`，该函数使用递归的方式对单链表进行快速排序。具体实现过程如下：
+
+1. 如果链表为空或只包含一个节点，则直接返回。
+2. 选取链表的第一个节点为pivot，将链表分成小于等于pivot和大于pivot两部分。
+3. 分别对左右两部分链表递归调用快速排序函数。
+4. 合并左右两部分排序后的链表，并返回合并后的链表。
+
+最后，我们还实现了一个打印链表内容的函数`printList`，用于打印链表的内容。在`main`函数中，我们创建了一个测试用例，对该测试用例进行排序，并打印排序后的结果。
+
 ## 堆排序O(nlogn)
 
 思路：堆是具有以下性质的完全二叉树：每个结点的值都大于或等于其左右孩子结点的值，称为大顶堆；或者每个结点的值都小于或等于其左右孩子结点的值，称为小顶堆。
