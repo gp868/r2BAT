@@ -2571,67 +2571,59 @@ int main()
 
 ```c
 #include <iostream>
-
 using namespace std;
 
-// 链表节点结构体
-struct ListNode {
+// 定义链表节点结构体
+struct ListNode{
     int val;
     ListNode* next;
-    ListNode(int x): val(x), next(nullptr) {}
+    ListNode(int x): val(x), next(nullptr){} // 构造函数，初始化节点值和指针为空
 };
 
-// 快速排序函数
-ListNode* quickSortList(ListNode* head) {
-    if (head == nullptr || head->next == nullptr) {
-        return head;
-    }
-    // 将链表分成小于等于pivot和大于pivot两部分
-    ListNode* pivot = head; // 选择链表的第一个节点为pivot
-    ListNode* p = head->next;
-    ListNode* small = new ListNode(0); // 创建小于等于pivot的链表
-    ListNode* big = new ListNode(0); // 创建大于pivot的链表
-    ListNode* smallTail = small; // 小于等于pivot的链表的尾指针
-    ListNode* bigTail = big; // 大于pivot的链表的尾指针
-    while (p != nullptr) { // 遍历链表
-        if (p->val <= pivot->val) { // 如果节点值小于等于pivot，将其放入小于等于pivot的链表中
-            smallTail->next = p;
-            smallTail = smallTail->next;
-        } else { // 否则，将其放入大于pivot的链表中
-            bigTail->next = p;
-            bigTail = bigTail->next;
+// 快速排序函数，输入为链表头指针，返回排好序的链表头指针
+ListNode* quickSort(ListNode* head){
+    if(!head || !head->next) return head; // 如果链表为空或只有一个元素，直接返回
+    ListNode* pivot = head; // 选择第一个元素作为枢轴
+    ListNode* p = head->next; // 从第二个元素开始遍历
+    ListNode* small = new ListNode(0); // 新建一个小于枢轴的链表头节点
+    ListNode* large = new ListNode(0); // 新建一个大于等于枢轴的链表头节点
+    ListNode* p1 = small, * p2 = large; // 定义两个指针分别指向两个链表的尾部
+    while(p){
+        if(p->val < pivot->val){ // 如果当前节点的值小于枢轴节点的值
+            p1->next = p; // 将当前节点添加到小于枢轴的链表末尾
+            p1 = p1->next; // 更新链表尾部指针
+        }else{ // 如果当前节点的值大于等于枢轴节点的值
+            p2->next = p; // 将当前节点添加到大于等于枢轴的链表末尾
+            p2 = p2->next; // 更新链表尾部指针
         }
-        p = p->next;
+        p = p->next; // 遍历下一个节点
     }
-    // 递归排序左右两部分链表
-    smallTail->next = nullptr; // 将小于等于pivot的链表的尾指针指向空，表示链表结束
-    bigTail->next = nullptr; // 将大于pivot的链表的尾指针指向空，表示链表结束
-    ListNode* left = quickSortList(small->next); // 递归排序小于等于pivot的链表
-    ListNode* right = quickSortList(big->next); // 递归排序大于pivot的链表
-    // 合并左右两部分链表
-    ListNode* res = left; // 将排序后的小于等于pivot的链表作为结果
-    if (left == nullptr) { // 如果左边的链表为空，直接将pivot作为结果，并将右边的链表接到pivot后面
-        res = pivot;
-        pivot->next = right;
-    } else { // 否则，将pivot接到左边链表的尾部，并将右边的链表接到pivot后面
-        ListNode* tail = left;
-        while (tail->next != nullptr) {
-            tail = tail->next;
+    p1->next = nullptr; // 将小于枢轴的链表尾部指向空指针
+    p2->next = nullptr; // 将大于等于枢轴的链表尾部指向空指针
+    ListNode* left = quickSort(small->next); // 递归快速排序小于枢轴的链表
+    ListNode* right = quickSort(large->next); // 递归快速排序大于等于枢轴的链表
+
+    ListNode* res = left; // 定义链表头指针，初始化为小于枢轴的链表头指针
+    if(!left){ // 如果小于枢轴的链表为空
+        res = pivot; // 将枢轴节点作为链表头
+        pivot->next = right; // 将大于等于枢轴的链表连接到枢轴节点后面
+    }else{ // 如果小于枢轴的链表非空
+        ListNode* node = left;
+        while(node->next){ // 找到小于枢轴的链表的尾节点
+            node = node->next;
         }
-        tail->next = pivot;
-        pivot->next = right;
+        node->next = pivot; // 将枢轴节点连接到小于枢轴的链表尾部
+        pivot->next = right; // 将大于等于枢轴的链表连接到枢轴节点后面
     }
-    delete small; // 释放小于等于pivot的链表的内存
-    delete big; // 释放大于pivot的链表的内存
-    return res; // 返回排序后的链表
+    return res; // 返回排好序的链表头指针
 }
 
-// 打印链表内容
+// 打印链表函数，输入为链表头指针
 void printList(ListNode* head) {
     ListNode* p = head;
     while (p != nullptr) { // 遍历链表
         cout << p->val << " "; // 打印节点值
-        p = p->next;
+        p = p->next; // 移动指针到链表下一个节点
     }
     cout << endl;
 }
@@ -2647,7 +2639,7 @@ int main() {
     cout << "Original list: ";
     printList(head);
     // 快速排序
-    ListNode* sortedHead = quickSortList(head);
+    ListNode* sortedHead = quickSort(head);
     // 打印排序后的链表
     cout << "Sorted list: ";
     printList(sortedHead);
