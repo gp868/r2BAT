@@ -819,7 +819,84 @@
 
   注意，在释放内存块之前，你应该确保该内存块是通过`malloc()`、`calloc()`或`realloc()`等函数分配的。如果你试图释放一个不是通过这些函数分配的内存块，那么`free()`函数的行为是未定义的，可能会导致程序崩溃或其他问题。
 
-- 
+- weak_ptr指向的对象可不可以访问类的成员函数
+
+  可以访问类的公共成员函数，但不能访问类的私有成员函数。
+
+  weak_ptr是一种智能指针，用于解决shared_ptr的循环引用问题。它与shared_ptr类似，也可以指向堆上的对象，并且可以通过lock()函数获取一个shared_ptr对象。与shared_ptr不同的是，weak_ptr不会增加对象的引用计数，因此可以避免循环引用导致内存泄漏的问题。
+
+  在使用weak_ptr时，可以通过lock()函数获取一个指向堆上对象的shared_ptr，然后使用该shared_ptr来访问对象的公共成员函数。例如：
+
+  ```c
+  #include <iostream>
+  #include <memory>
+  
+  using namespace std;
+  
+  class MyClass {
+  public:
+      void func() {
+          cout << "Hello, world!" << endl;
+      }
+  };
+  
+  int main() {
+      shared_ptr<MyClass> sp = make_shared<MyClass>();
+      weak_ptr<MyClass> wp = sp;
+  
+      if (auto p = wp.lock()) {
+          p->func();  // 可以访问公共成员函数func()
+      }
+  
+      return 0;
+  }
+  ```
+
+  在上面的示例代码中，我们创建了一个MyClass的对象，并将其指针保存在shared_ptr中，然后又使用weak_ptr指向该对象。在使用lock()函数获取shared_ptr对象之后，可以通过该对象来访问公共成员函数func()。
+
+  需要注意的是，由于weak_ptr不增加对象的引用计数，因此如果对象已经被释放，使用lock()函数获取的shared_ptr将会为空指针，此时访问成员函数会导致运行时错误。因此，在使用weak_ptr时，需要先检查获取的shared_ptr是否为空指针，然后再进行访问。
+
+- weak_ptr转shared_ptr指针哪些情况下可能会失效？
+
+  在使用weak_ptr转换为shared_ptr时，由于weak_ptr不会增加对象的引用计数，因此需要注意以下几种情况，可能会导致转换后的shared_ptr失效：
+
+  1. 对象已经被释放：如果对象已经被释放，那么使用weak_ptr转换为shared_ptr时将会返回一个空指针，访问该指针的成员函数将会导致运行时错误。
+
+  2. 同一个对象存在多个weak_ptr：如果同一个对象存在多个weak_ptr，而且这些weak_ptr都转换为了shared_ptr，那么可能会导致对象被多次释放，从而导致转换后的shared_ptr失效。
+
+  3. 由于指针误用而导致的对象被释放：如果在对象被释放之前，使用了不正确的指针或者访问了已经释放的内存，那么可能会导致对象被提前释放，从而导致转换后的shared_ptr失效。
+
+  为了避免这些问题，可以在使用weak_ptr转换为shared_ptr时，先检查转换后的shared_ptr是否为空指针，然后再进行访问。例如：
+
+  ```c
+  #include <iostream>
+  #include <memory>
+  
+  using namespace std;
+  
+  class MyClass {
+  public:
+      void func() {
+          cout << "Hello, world!" << endl;
+      }
+  };
+  
+  int main() {
+      shared_ptr<MyClass> sp = make_shared<MyClass>();
+      weak_ptr<MyClass> wp = sp;
+  
+      if (auto p = wp.lock()) {
+          p->func();  // 可以访问公共成员函数func()
+      }
+      else {
+          cout << "Object has been destroyed!" << endl;
+      }
+  
+      return 0;
+  }
+  ```
+
+  在上面的示例代码中，我们在使用lock()函数获取shared_ptr之前，先判断其是否为空指针，以避免使用已经被释放的内存。如果shared_ptr不为空指针，就可以使用该指针来访问对象的成员函数了。
 
 
 
@@ -1365,6 +1442,28 @@
 
   总之，在使用`weak_ptr`时，需要注意避免循环引用和内存泄漏的问题，同时避免出现错误的使用情况，以确保程序的正确性和稳定性。
 
+- 拷贝构造和赋值运算符有什么区别？
+
+  拷贝构造函数和赋值运算符都是用来实现对象的复制，但它们的实现方法和使用场景有所不同。
+
+  拷贝构造函数是一种特殊的构造函数，用于创建一个新的对象，该对象的内容与现有对象完全相同。拷贝构造函数通常采用引用方式传递参数，即将现有对象的引用作为参数传递给拷贝构造函数，然后创建一个新的对象并将现有对象的数据复制到新对象中。拷贝构造函数通常在以下情况下被调用：
+
+  1. 通过值传递方式创建对象；
+  2. 对象作为函数参数传递；
+  3. 对象作为函数返回值返回；
+  4. 对象作为另一个对象的成员变量创建。
+
+  赋值运算符是一种函数，用于将一个对象的值赋给另一个对象。赋值运算符通常采用引用方式传递参数，即将右值对象的引用作为参数传递给赋值运算符，然后将右值对象的数据复制到左值对象中。赋值运算符通常在以下情况下被调用：
+
+  1. 对象被另一个对象赋值；
+  2. 对象被另一个对象初始化；
+  3. 对象作为函数参数传递；
+  4. 对象作为函数返回值返回。
+
+  总的来说，拷贝构造函数和赋值运算符都是用来实现对象的复制，但它们的实现方法和使用场景有所不同。拷贝构造函数用于在创建对象的同时进行赋值操作，而赋值运算符用于已经存在的对象之间的赋值操作。因此，在实现类时，需要同时实现拷贝构造函数和赋值运算符，以便支持对象的复制和赋值操作。
+
+- 
+
   
 
 ## STL
@@ -1634,6 +1733,47 @@
   4. 当删除字符串中的字符时，`std::string` 也会自动缩容。缩容的过程和扩容相似，但会释放多余的内存空间，以便其他程序可以使用。
 
   综上所述，`std::string` 采用动态数组的方式来存储字符串数据，可以动态地增加或减少其所占用的内存空间。扩容时，`std::string` 根据当前字符串的长度和容量来判断是否需要扩容，并分配一块更大的内存空间。通常情况下，扩容的大小是原来容量的两倍或者是原来容量加上一个固定的值。
+
+- 如果把一个类传递给map的key值，需要加什么操作吗？
+
+  如果要将一个类的对象作为map的key值，需要满足两个条件：
+
+  1. 该类必须支持比较运算符（operator<），以便能够比较两个对象的大小关系。
+
+  2. 比较运算符必须正确实现，以保证对象之间的比较不出错。
+
+  如果类已经支持比较运算符，那么可以直接将其对象作为map的key值，例如：
+
+  ```c
+  #include <map>
+  #include <string>
+  
+  class Person {
+  public:
+      std::string name;
+      int age;
+      
+      bool operator<(const Person& other) const {
+          return name < other.name;
+      }
+  };
+  
+  int main() {
+      std::map<Person, int> personMap;
+      
+      Person p1 = {"Tom", 20};
+      Person p2 = {"Jerry", 18};
+      
+      personMap[p1] = 100;
+      personMap[p2] = 200;
+      
+      return 0;
+  }
+  ```
+
+  在上面的例子中，Person类实现了比较运算符，将其对象作为map的key值，不需要进行额外的操作。
+
+  需要注意的是，当将一个类的对象作为map的key值时，应该避免修改对象的属性，以免影响map的正确性和可靠性。另外，也需要注意对象比较的效率和性能，避免影响程序的执行效率和响应速度。
 
 - 
 
