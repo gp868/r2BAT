@@ -1238,6 +1238,111 @@
 
   需要注意的是，C++11 引入了可变参数模板的 allocator，即 `std::allocator_traits`。它提供了更多的能力，可以处理不同的内存分配器，支持 C++11 引入的移动语义，还可以处理可变参数的构造函数和析构函数。
 
+- 智能指针shared_ptr、unique_ptr应用场景
+
+  智能指针是一种 C++ 的语言特性，它可以自动管理动态分配的内存。智能指针的两种常用类型是 `shared_ptr` 和 `unique_ptr`。
+
+  `unique_ptr` 是一个独占指针，它拥有对其所指对象的唯一所有权。当 `unique_ptr` 被销毁时，它所指向的对象也会被销毁。`unique_ptr` 适用于以下场景：
+
+  - 管理动态分配的内存，确保内存的正确释放；
+  - 作为函数的返回值，传递动态分配的对象的所有权；
+  - 在容器中存储对象。
+
+  示例代码：
+
+  ```c
+  // 创建一个 unique_ptr 对象，指向一个动态分配的整数
+  std::unique_ptr<int> uptr(new int(42));
+  
+  // unique_ptr 对象可以作为函数的返回值
+  std::unique_ptr<int> create_int() {
+    return std::unique_ptr<int>(new int(42));
+  }
+  
+  // unique_ptr 对象可以存储在容器中
+  std::vector<std::unique_ptr<int>> vec;
+  vec.push_back(std::unique_ptr<int>(new int(42)));
+  ```
+
+  `shared_ptr` 是一个共享指针，它允许多个指针共享同一个对象。当最后一个 `shared_ptr` 对象被销毁时，它所指向的对象也会被销毁。`shared_ptr` 适用于以下场景：
+
+  - 多个对象需要共享同一个动态分配的对象；
+  - 对象的所有权需要在多个地方传递和共享。
+
+  示例代码：
+
+  ```c
+  // 创建一个 shared_ptr 对象，指向一个动态分配的整数
+  std::shared_ptr<int> sptr(new int(42));
+  
+  // 多个 shared_ptr 对象可以共享同一个对象
+  std::shared_ptr<int> sptr2 = sptr;
+  
+  // shared_ptr 对象可以作为函数的参数和返回值
+  void process_int(std::shared_ptr<int> sptr) {
+    // do something with sptr
+  }
+  
+  std::shared_ptr<int> create_int() {
+    return std::make_shared<int>(42);
+  }
+  ```
+
+  需要注意的是，`shared_ptr` 的多线程使用需要特别小心，因为它的内部引用计数可能会被多个线程同时访问和修改。为了避免多线程问题，可以使用 `std::atomic<>`对引用计数进行原子操作，或者使用线程安全的智能指针实现，如 `std::shared_ptr<std::mutex>` 和 `std::shared_ptr<std::shared_mutex>`。
+
+- shared_ptr的内部的count计数是否是线程安全的
+
+  `std::shared_ptr` 内部的引用计数 `count` 不是线程安全的。多个线程同时访问和修改 `count` 可能会导致竞态条件和内存泄漏等问题。
+
+  为了避免这些问题，C++11 标准库提供了 `std::atomic` 模板，可以用于原子操作计数器。可以通过将 `count` 声明为 `std::atomic<std::size_t>`，来保证 `shared_ptr` 计数器的线程安全。使用原子操作可以确保多线程访问计数器时，不会发生竞争条件。
+
+  示例代码：
+
+  ```c
+  #include <atomic>
+  #include <memory>
+  
+  int main() {
+      std::atomic<std::size_t> count(0);
+      std::shared_ptr<int> ptr(new int(42), [&count](int* p) {
+          delete p;
+          --count;
+      });
+      ++count;
+      std::shared_ptr<int> ptr2 = ptr;
+      ++count;
+      return 0;
+  }
+  ```
+
+  在上面的示例中，我们使用了 `std::atomic` 来保证 `count` 的线程安全。在创建 `shared_ptr` 时，我们将计数器 `count` 的类型声明为 `std::atomic<std::size_t>`，并在自定义的删除器中对 `count` 进行原子操作。在增加和减少 `shared_ptr` 的引用计数时，也需要使用原子操作来保证线程安全。
+
+  需要注意的是，使用原子操作会增加一定的开销，因此只有在多线程环境下，且计数器的访问频率较高时，才有必要使用原子操作来保证线程安全。如果在单线程环境下使用 `std::atomic`，则可能会降低程序的性能。
+
+  另外，C++11 标准库还提供了 `std::enable_shared_from_this` 类，它可以让某个对象 `obj` 获得一个 `std::shared_ptr`，从而可以在对象内部访问该对象的引用计数。使用 `std::enable_shared_from_this` 可以避免在创建 `shared_ptr` 时出现竞态条件，从而提高代码的可靠性。
+
+- 调用shared_ptr指向的对象的方法是否是线程安全的
+
+  调用 `std::shared_ptr` 指向的对象的方法是否线程安全取决于该对象本身是否线程安全。`std::shared_ptr` 只是一种内存管理工具，它本身并没有提供线程安全保障。
+
+  如果 `std::shared_ptr` 指向的对象是线程安全的，那么在多线程环境下调用该对象的方法也是线程安全的。否则，在多线程环境下调用该对象的方法可能会导致竞态条件和数据竞争等问题。
+
+  例如，如果 `std::shared_ptr` 指向的对象是一个线程安全的容器，如 `std::vector`，那么在多线程环境下调用该容器的方法是线程安全的。另外，如果该对象已经被加锁，那么在多线程环境下调用该对象的方法也是线程安全的。
+
+  需要注意的是，即使对象本身是线程安全的，多个线程同时调用该对象的方法仍然可能会导致性能问题。在这种情况下，可以考虑使用线程安全的容器或者采用其他线程同步机制来避免竞态条件和数据竞争。
+
+  总之，当使用 `std::shared_ptr` 时，需要确认指向的对象是否是线程安全的，并根据实际情况采取相应的线程同步措施来保证多线程环境下的程序正确性和性能。
+
+- malloc最多能开多少
+
+  `malloc` 函数的最大可分配内存取决于操作系统和硬件架构的限制。在 32 位操作系统上，由于地址空间的限制，`malloc` 函数最多只能分配 2GB 的内存；而在 64 位操作系统上，由于地址空间更大，理论上可以分配更大的内存。
+
+  但是，即使在 64 位操作系统上，实际上也无法分配所有可用内存，因为操作系统和硬件架构仍然会施加一些限制。例如，操作系统可能会限制进程最大可用内存的大小，硬件架构也可能会限制每个进程可用内存的大小。此外，`malloc` 函数的实现还可能会对可分配的内存大小进行限制，例如可能会限制分配的内存大小为操作系统页面大小的倍数。
+
+  因此，如果需要分配大量内存，建议使用专门的内存分配库，如 `jemalloc`、`tcmalloc` 等，这些库通常能够更好地管理内存碎片，提供更高效的内存分配和释放。另外，也可以考虑使用内存映射文件等技术来分配大量的内存。
+
+- 
+
 
 
 
